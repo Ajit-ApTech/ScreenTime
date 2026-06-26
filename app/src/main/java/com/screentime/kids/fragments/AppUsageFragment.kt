@@ -25,6 +25,8 @@ class AppUsageFragment : Fragment() {
     // Buffer data in case activity delivers it before the view is created
     private var pendingSessions: List<AppSession> = emptyList()
 
+    var onAppClicked: ((AppSession) -> Unit)? = null
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -37,7 +39,9 @@ class AppUsageFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         binding.rvAppUsage.layoutManager = LinearLayoutManager(requireContext())
-        binding.rvAppUsage.adapter = AppUsageAdapter(requireContext(), pendingSessions)
+        binding.rvAppUsage.adapter = AppUsageAdapter(requireContext(), pendingSessions) { app ->
+            onAppClicked?.invoke(app)
+        }
         
         setupChart()
         updateChartAndList(pendingSessions)

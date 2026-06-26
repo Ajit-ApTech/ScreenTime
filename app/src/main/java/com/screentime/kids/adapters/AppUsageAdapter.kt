@@ -14,7 +14,8 @@ import com.screentime.kids.models.AppSession
 
 class AppUsageAdapter(
     private val context: Context,
-    appSessions: List<AppSession> = emptyList()
+    appSessions: List<AppSession> = emptyList(),
+    private val onItemClick: ((AppSession) -> Unit)? = null
 ) : RecyclerView.Adapter<AppUsageAdapter.AppViewHolder>() {
 
     // Internal mutable copy — avoids UnsupportedOperationException on submitList()
@@ -88,6 +89,11 @@ class AppUsageAdapter(
         val bgDrawable = ContextCompat.getDrawable(context, R.drawable.bg_usage_bar)?.mutate()
         bgDrawable?.setTint(ContextCompat.getColor(context, textColor))
         holder.viewUsageBar.background = bgDrawable
+
+        // Click listener for bottom sheet
+        holder.itemView.setOnClickListener {
+            onItemClick?.invoke(app)
+        }
     }
 
     override fun getItemCount(): Int = items.size

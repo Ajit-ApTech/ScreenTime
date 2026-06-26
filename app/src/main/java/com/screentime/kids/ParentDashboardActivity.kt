@@ -9,6 +9,10 @@ import androidx.viewpager2.widget.ViewPager2
 import com.google.android.material.tabs.TabLayout
 import com.google.android.material.tabs.TabLayoutMediator
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.android.material.bottomsheet.BottomSheetDialog
+import android.widget.ImageView
+import android.widget.TextView
+import androidx.core.content.ContextCompat
 import com.screentime.kids.adapters.ChildChipAdapter
 import com.screentime.kids.databinding.ActivityParentDashboardBinding
 import com.screentime.kids.fragments.AppUsageFragment
@@ -35,6 +39,7 @@ class ParentDashboardActivity : AppCompatActivity() {
     private val appUsageFragment = AppUsageFragment()
     private val callLogFragment   = CallLogFragment()
     private val messageFragment   = MessageFragment()
+    private val timeSdf = SimpleDateFormat("h:mm a", Locale.getDefault())
 
     // Last sync tracking for the live countdown
     private var lastSyncTime = System.currentTimeMillis()
@@ -101,7 +106,9 @@ class ParentDashboardActivity : AppCompatActivity() {
         val pagerAdapter = object : FragmentStateAdapter(this) {
             override fun getItemCount() = 3
             override fun createFragment(position: Int) = when (position) {
-                0    -> appUsageFragment
+                0    -> appUsageFragment.apply {
+                    onAppClicked = { app -> showAppDetailBottomSheet(app) }
+                }
                 1    -> callLogFragment
                 2    -> messageFragment
                 else -> appUsageFragment
@@ -276,6 +283,80 @@ class ParentDashboardActivity : AppCompatActivity() {
             minutes > 0 -> "${minutes}m"
             else        -> "< 1m"
         }
+    }
+
+    private fun showAppDetailBottomSheet(app: AppSession) {
+        val dialog = BottomSheetDialog(this)
+        val view = layoutInflater.inflate(R.layout.bottom_sheet_app_detail, null)
+        dialog.setContentView(view)
+
+        // App icon with safe fallback for when parent doesn't have the child's app installed
+        val ivIcon = view.findViewById<ImageView>(R.id.bsIvAppIcon)
+        try {
+            ivIcon.setImageDrawable(packageManager.getApplicationIcon(app.packageName))
+        } catch (e: Exception) {
+            ivIcon.setImageResource(android.R.drawable.sym_def_app_icon)
+        }
+
+        view.findViewById<TextView>(R.id.bsTvAppName).text = app.appName
+        view.findViewById<TextView>(R.id.bsTvPackageName).text = app.packageName
+
+        // Total time
+        val totalTimeText = formatDuration(app.totalTimeSeconds)
+        view.findViewById<TextView>(R.id.bsTvTotalTime).text = totalTimeText
+
+        // Last used (exact time)
+        val lastUsedText = if (app.lastUsedTimestamp > 0) {
+            timeSdf.format(Date(app.lastUsedTimestamp))
+        } else "--"
+        view.findViewById<TextView>(R.id.bsTvLastUsed).text = lastUsedText
+
+        // First opened: estimate = lastUsedTimestamp - totalTimeSeconds
+        val firstOpenedText = if (app.lastUsedTimestamp > 0 && app.totalTimeSeconds > 0) {
+            val estimatedStart = app.lastUsedTimestamp - (app.totalTimeSeconds * 1000)
+            
+            val cal = Calendar.getInstance()
+            cal.set(Calendar.HOUR_OF_DAY, 0)
+            cal.set(Calendar.MINUTE, 0)
+            cal.set(Calendar.SECOND, 0)
+            cal.set(Calendar.MILLISECOND, 0)
+            val startOfDay = cal.timeInMillis
+
+            if (estimatedStart >= startOfDay) {
+                timeSdf.format(Date(estimatedStart))
+            } else {
+                timeSdf.format(Date(startOfDay))
+            }
+        } else "--"
+        view.findViewById<TextView>(R.id.bsTvFirstOpened).text = firstOpenedText
+
+        // Estimated session count (rough estimate: avg 5 min per session)
+        val estimatedSessions = if (app.totalTimeSeconds > 0) {
+            maxOf(1, (app.totalTimeSeconds / 300).toInt())
+        } else 0
+        val sessionText = "$estimatedSessions time${if (estimatedSessions != 1) "s" else ""}"
+        view.findViewById<TextView>(R.id.bsTvSessionCount).text = sessionText
+
+        // Time pill in the bottom stat box
+        val timePill = view.findViewById<TextView>(R.id.bsTvTimePill)
+        timePill.text = totalTimeText
+        val hours = app.totalTimeSeconds / 3600
+        when {
+            hours < 1 -> {
+                timePill.setTextColor(ContextCompat.getColor(this, R.color.status_green))
+                timePill.setBackgroundResource(R.drawable.bg_pill_green)
+            }
+            hours < 2 -> {
+                timePill.setTextColor(ContextCompat.getColor(this, R.color.status_orange))
+                timePill.setBackgroundResource(R.drawable.bg_pill_orange)
+            }
+            else -> {
+                timePill.setTextColor(ContextCompat.getColor(this, R.color.status_red))
+                timePill.setBackgroundResource(R.drawable.bg_pill_red)
+            }
+        }
+
+        dialog.show()
     }
 
     override fun onDestroy() {
