@@ -5,10 +5,15 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
+import android.view.LayoutInflater
 import android.view.View
+import android.view.ViewGroup
 import android.view.animation.AnimationUtils
+import android.widget.ImageView
+import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.screentime.kids.databinding.ActivityHomeBinding
 import com.screentime.kids.helpers.AppUsageHelper
 import com.screentime.kids.helpers.CallLogHelper
@@ -30,10 +35,10 @@ class HomeActivity : AppCompatActivity() {
 
     private val handler = Handler(Looper.getMainLooper())
     private var secondsSinceLastUpdate = 0
-    // Tracks what date we last displayed — so we notice when midnight rolls over
     private var lastDisplayedDate = ""
-    private val dateSdf = SimpleDateFormat("EEEE, dd MMMM", Locale.getDefault())
+    private val dateSdf = SimpleDateFormat("EEE, dd MMM", Locale.getDefault())
     private val dateSdfShort = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+    private val timeSdf = SimpleDateFormat("h:mm a", Locale.getDefault())
 
     private lateinit var appsAdapter: AppsUsageAdapter
 
@@ -45,16 +50,18 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    // Runnable that ticks the "last updated X seconds ago" counter every second
-    // and also refreshes the date header if the calendar day rolls over.
+    // Tick counter for "last updated Xs ago"
     private val tickRunnable = object : Runnable {
         override fun run() {
             secondsSinceLastUpdate++
-            binding.tvFooterUpdate.text = "Last updated: ${secondsSinceLastUpdate}s ago"
-            // Check once per minute whether the date has changed (covers midnight rollover)
-            if (secondsSinceLastUpdate % 60 == 0) {
-                updateDateHeader()
+            val label = when {
+                secondsSinceLastUpdate < 60 -> "Last updated: ${secondsSinceLastUpdate}s ago"
+                secondsSinceLastUpdate < 3600 -> "Last updated: ${secondsSinceLastUpdate / 60}m ago"
+                else -> "Last updated: ${secondsSinceLastUpdate / 3600}h ago"
             }
+            binding.tvLastUpdate.text = label
+            binding.tvFooterUpdate.text = label
+            if (secondsSinceLastUpdate % 60 == 0) updateDateHeader()
             handler.postDelayed(this, 1_000L)
         }
     }
@@ -66,6 +73,18 @@ class HomeActivity : AppCompatActivity() {
 
         setupRecyclerView()
         setupRefreshButton()
+
+        // Start the background monitoring service so it runs even when this screen is closed
+        startMonitoringService()
+    }
+
+    private fun startMonitoringService() {
+        val serviceIntent = Intent(this, MonitorForegroundService::class.java)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            startForegroundService(serviceIntent)
+        } else {
+            startService(serviceIntent)
+        }
     }
 
     private fun setupRefreshButton() {
@@ -75,17 +94,13 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private fun triggerRefresh() {
-        // Disable button while refreshing to prevent double-taps
         binding.btnRefresh.isEnabled = false
         binding.tvRefreshingStatus.visibility = View.VISIBLE
 
-        // Spin the refresh icon
         val spinAnim = AnimationUtils.loadAnimation(this, R.anim.rotate_refresh)
         binding.btnRefresh.startAnimation(spinAnim)
 
-        // Run data fetch off the main thread, then update UI
         Thread {
-            // Read usage data (already thread-safe)
             val childName = firebaseHelper.getChildName() ?: ""
             val todayAppSessions = appUsageHelper.getTodayAppSessions()
             val currentApp = appUsageHelper.getCurrentForegroundApp()
@@ -93,13 +108,12 @@ class HomeActivity : AppCompatActivity() {
             val callLogs = callLogHelper.getNewCallLogs(lastSyncTimestamp)
             val messages = messageHelper.getNewMessages(lastSyncTimestamp)
 
-            // Push Firebase sync (fire-and-forget)
             Thread { firebaseHelper.syncData(childName, currentApp, todayAppSessions, callLogs, messages) }.start()
 
-            // Update UI on main thread
             runOnUiThread {
                 updateTodayScreenTime(todayAppSessions)
                 appsAdapter.submitList(todayAppSessions)
+                updateAppCountBadge(todayAppSessions.size)
 
                 secondsSinceLastUpdate = 0
                 binding.tvLastUpdate.text = "Last updated: just now"
@@ -113,45 +127,52 @@ class HomeActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-
-        // Always refresh the date header when the app becomes visible
         updateDateHeader()
+        updateChildGreeting()
 
-        // Check if the user has granted Usage Access permission
         if (!appUsageHelper.hasUsageStatsPermission()) {
             showPermissionWarning()
         } else {
-            hidePermissionWarning()
-            // Load data immediately on resume
             updateData()
         }
 
-        // Start auto-refresh every 30 seconds
         handler.postDelayed(syncRunnable, 30_000L)
-        // Start the tick counter
         handler.post(tickRunnable)
     }
 
     override fun onPause() {
         super.onPause()
-        // Stop all runnables when not visible
         handler.removeCallbacks(syncRunnable)
         handler.removeCallbacks(tickRunnable)
     }
 
     private fun setupRecyclerView() {
-        appsAdapter = AppsUsageAdapter(this)
+        appsAdapter = AppsUsageAdapter(this) { appSession ->
+            showAppDetailBottomSheet(appSession)
+        }
         binding.rvApps.layoutManager = androidx.recyclerview.widget.LinearLayoutManager(this)
         binding.rvApps.adapter = appsAdapter
     }
 
-    /** Updates the date header. Safe to call repeatedly — only updates the view if the date changed. */
     private fun updateDateHeader() {
         val today = dateSdfShort.format(Date())
         if (today != lastDisplayedDate) {
             lastDisplayedDate = today
             binding.tvDate.text = dateSdf.format(Date())
         }
+    }
+
+    private fun updateChildGreeting() {
+        val name = firebaseHelper.getChildName()
+        if (!name.isNullOrBlank()) {
+            binding.tvChildGreeting.text = "Monitoring · $name"
+        } else {
+            binding.tvChildGreeting.text = "Monitoring your child"
+        }
+    }
+
+    private fun updateAppCountBadge(count: Int) {
+        binding.tvAppCount.text = "$count apps"
     }
 
     private fun showPermissionWarning() {
@@ -164,10 +185,6 @@ class HomeActivity : AppCompatActivity() {
         }.show()
     }
 
-    private fun hidePermissionWarning() {
-        // No persistent banner view, Snackbar auto-dismisses
-    }
-
     private fun updateData() {
         val childName = firebaseHelper.getChildName() ?: ""
         val todayAppSessions = appUsageHelper.getTodayAppSessions()
@@ -175,21 +192,18 @@ class HomeActivity : AppCompatActivity() {
 
         android.util.Log.d("HomeActivity", "updateData: ${todayAppSessions.size} apps found")
 
-        // Update UI
         updateTodayScreenTime(todayAppSessions)
         appsAdapter.submitList(todayAppSessions)
+        updateAppCountBadge(todayAppSessions.size)
 
-        // Reset the seconds counter and update the "last updated" label
         secondsSinceLastUpdate = 0
         binding.tvLastUpdate.text = "Last updated: just now"
         binding.tvFooterUpdate.text = "Last updated: just now"
 
-        // Get call logs and messages since last 30 seconds
         val lastSyncTimestamp = System.currentTimeMillis() - 30_000L
         val callLogs = callLogHelper.getNewCallLogs(lastSyncTimestamp)
         val messages = messageHelper.getNewMessages(lastSyncTimestamp)
 
-        // Sync data to Firebase in background
         Thread {
             firebaseHelper.syncData(childName, currentApp, todayAppSessions, callLogs, messages)
         }.start()
@@ -200,14 +214,92 @@ class HomeActivity : AppCompatActivity() {
         binding.tvTotalScreenTime.text = formatDuration(totalSeconds)
     }
 
+    /** Shows the bottom sheet with detailed info for a tapped app */
+    private fun showAppDetailBottomSheet(app: AppSession) {
+        val dialog = BottomSheetDialog(this)
+        val view = layoutInflater.inflate(R.layout.bottom_sheet_app_detail, null)
+        dialog.setContentView(view)
+
+        // App icon
+        val ivIcon = view.findViewById<ImageView>(R.id.bsIvAppIcon)
+        try {
+            ivIcon.setImageDrawable(packageManager.getApplicationIcon(app.packageName))
+        } catch (e: Exception) {
+            ivIcon.setImageResource(android.R.drawable.sym_def_app_icon)
+        }
+
+        // Name and package
+        view.findViewById<TextView>(R.id.bsTvAppName).text = app.appName
+        view.findViewById<TextView>(R.id.bsTvPackageName).text = app.packageName
+
+        // Total time
+        val totalTimeText = formatDuration(app.totalTimeSeconds)
+        view.findViewById<TextView>(R.id.bsTvTotalTime).text = totalTimeText
+
+        // Last used (exact time)
+        val lastUsedText = if (app.lastUsedTimestamp > 0) {
+            timeSdf.format(Date(app.lastUsedTimestamp))
+        } else "--"
+        view.findViewById<TextView>(R.id.bsTvLastUsed).text = lastUsedText
+
+        // First opened: estimate = lastUsedTimestamp - totalTimeSeconds
+        val firstOpenedText = if (app.lastUsedTimestamp > 0 && app.totalTimeSeconds > 0) {
+            val estimatedStart = app.lastUsedTimestamp - (app.totalTimeSeconds * 1000)
+            // Only show if it's within today
+            val startOfDay = getStartOfDay()
+            if (estimatedStart >= startOfDay) {
+                timeSdf.format(Date(estimatedStart))
+            } else {
+                timeSdf.format(Date(startOfDay))
+            }
+        } else "--"
+        view.findViewById<TextView>(R.id.bsTvFirstOpened).text = firstOpenedText
+
+        // Estimated session count (rough estimate: avg 5 min per session)
+        val estimatedSessions = if (app.totalTimeSeconds > 0) {
+            maxOf(1, (app.totalTimeSeconds / 300).toInt()) // every ~5 min = 1 session
+        } else 0
+        val sessionText = "$estimatedSessions time${if (estimatedSessions != 1) "s" else ""}"
+        view.findViewById<TextView>(R.id.bsTvSessionCount).text = sessionText
+
+        // Time pill in the bottom stat box (colored by usage)
+        val timePill = view.findViewById<TextView>(R.id.bsTvTimePill)
+        timePill.text = totalTimeText
+        val hours = app.totalTimeSeconds / 3600
+        when {
+            hours < 1 -> {
+                timePill.setTextColor(ContextCompat.getColor(this, R.color.status_green))
+                timePill.setBackgroundResource(R.drawable.bg_pill_green)
+            }
+            hours < 2 -> {
+                timePill.setTextColor(ContextCompat.getColor(this, R.color.status_orange))
+                timePill.setBackgroundResource(R.drawable.bg_pill_orange)
+            }
+            else -> {
+                timePill.setTextColor(ContextCompat.getColor(this, R.color.status_red))
+                timePill.setBackgroundResource(R.drawable.bg_pill_red)
+            }
+        }
+
+        dialog.show()
+    }
+
+    private fun getStartOfDay(): Long {
+        val cal = Calendar.getInstance()
+        cal.set(Calendar.HOUR_OF_DAY, 0)
+        cal.set(Calendar.MINUTE, 0)
+        cal.set(Calendar.SECOND, 0)
+        cal.set(Calendar.MILLISECOND, 0)
+        return cal.timeInMillis
+    }
+
     private fun formatDuration(totalSeconds: Long): String {
         val hours = totalSeconds / 3600
         val minutes = (totalSeconds % 3600) / 60
-
         return when {
-            hours > 0 -> "$hours h $minutes m"
-            minutes > 0 -> "$minutes m"
-            else -> "< 1 m"
+            hours > 0 -> "${hours}h ${minutes}m"
+            minutes > 0 -> "${minutes}m"
+            else -> "< 1m"
         }
     }
 
@@ -218,21 +310,27 @@ class HomeActivity : AppCompatActivity() {
     }
 }
 
-class AppsUsageAdapter(private val context: android.content.Context) :
-    androidx.recyclerview.widget.RecyclerView.Adapter<AppsUsageAdapter.AppViewHolder>() {
+// ── Adapter ──────────────────────────────────────────────────────────────────
+
+class AppsUsageAdapter(
+    private val context: android.content.Context,
+    private val onItemClick: (AppSession) -> Unit
+) : androidx.recyclerview.widget.RecyclerView.Adapter<AppsUsageAdapter.AppViewHolder>() {
 
     private var apps: List<AppSession> = emptyList()
+    private var totalSecondsToday: Long = 0L
 
-    class AppViewHolder(itemView: android.view.View) :
+    class AppViewHolder(itemView: View) :
         androidx.recyclerview.widget.RecyclerView.ViewHolder(itemView) {
-        val ivAppIcon = itemView.findViewById<android.widget.ImageView>(R.id.ivAppIcon)
-        val tvAppName = itemView.findViewById<android.widget.TextView>(R.id.tvAppName)
-        val tvAppTime = itemView.findViewById<android.widget.TextView>(R.id.tvAppTime)
-        val tvLastUsed = itemView.findViewById<android.widget.TextView>(R.id.tvLastUsed)
+        val ivAppIcon: ImageView = itemView.findViewById(R.id.ivAppIcon)
+        val tvAppName: TextView = itemView.findViewById(R.id.tvAppName)
+        val tvAppTime: TextView = itemView.findViewById(R.id.tvAppTime)
+        val tvLastUsed: TextView = itemView.findViewById(R.id.tvLastUsed)
+        val viewUsageBar: View = itemView.findViewById(R.id.viewUsageBar)
     }
 
-    override fun onCreateViewHolder(parent: android.view.ViewGroup, viewType: Int): AppViewHolder {
-        val view = android.view.LayoutInflater.from(parent.context)
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): AppViewHolder {
+        val view = LayoutInflater.from(parent.context)
             .inflate(R.layout.item_app_usage, parent, false)
         return AppViewHolder(view)
     }
@@ -240,10 +338,9 @@ class AppsUsageAdapter(private val context: android.content.Context) :
     override fun onBindViewHolder(holder: AppViewHolder, position: Int) {
         val app = apps[position]
 
-        // Load app icon
+        // App icon
         try {
-            val pm = context.packageManager
-            val icon = pm.getApplicationIcon(app.packageName)
+            val icon = context.packageManager.getApplicationIcon(app.packageName)
             holder.ivAppIcon.setImageDrawable(icon)
         } catch (e: Exception) {
             holder.ivAppIcon.setImageDrawable(
@@ -252,18 +349,50 @@ class AppsUsageAdapter(private val context: android.content.Context) :
         }
 
         holder.tvAppName.text = app.appName
-        holder.tvAppTime.text = formatDuration(app.totalTimeSeconds)
         holder.tvLastUsed.text = if (app.lastUsedTimestamp > 0) {
             "Last used: ${formatTimeAgo(app.lastUsedTimestamp)}"
-        } else {
-            ""
+        } else ""
+
+        // Time text + colored badge
+        val timeText = formatDuration(app.totalTimeSeconds)
+        holder.tvAppTime.text = timeText
+        val hours = app.totalTimeSeconds / 3600
+        when {
+            hours < 1 -> {
+                holder.tvAppTime.setTextColor(androidx.core.content.ContextCompat.getColor(context, R.color.status_green))
+                holder.tvAppTime.setBackgroundResource(R.drawable.bg_pill_green)
+            }
+            hours < 2 -> {
+                holder.tvAppTime.setTextColor(androidx.core.content.ContextCompat.getColor(context, R.color.status_orange))
+                holder.tvAppTime.setBackgroundResource(R.drawable.bg_pill_orange)
+            }
+            else -> {
+                holder.tvAppTime.setTextColor(androidx.core.content.ContextCompat.getColor(context, R.color.status_red))
+                holder.tvAppTime.setBackgroundResource(R.drawable.bg_pill_red)
+            }
         }
+
+        // Usage progress bar (proportional width to total usage today)
+        val proportion = if (totalSecondsToday > 0) {
+            (app.totalTimeSeconds.toFloat() / totalSecondsToday.toFloat()).coerceIn(0f, 1f)
+        } else 0f
+        holder.viewUsageBar.post {
+            val parentWidth = (holder.viewUsageBar.parent as View).width
+            val barWidth = (parentWidth * proportion).toInt().coerceAtLeast(8)
+            val params = holder.viewUsageBar.layoutParams
+            params.width = barWidth
+            holder.viewUsageBar.layoutParams = params
+        }
+
+        // Tap to open bottom sheet
+        holder.itemView.setOnClickListener { onItemClick(app) }
     }
 
     override fun getItemCount(): Int = apps.size
 
     fun submitList(newApps: List<AppSession>) {
         apps = newApps
+        totalSecondsToday = newApps.sumOf { it.totalTimeSeconds }
         notifyDataSetChanged()
     }
 
@@ -271,13 +400,12 @@ class AppsUsageAdapter(private val context: android.content.Context) :
         val hours = totalSeconds / 3600
         val minutes = (totalSeconds % 3600) / 60
         return when {
-            hours > 0 -> "$hours h $minutes m"
-            minutes > 0 -> "$minutes m"
-            else -> "< 1 m"
+            hours > 0 -> "${hours}h ${minutes}m"
+            minutes > 0 -> "${minutes}m"
+            else -> "< 1m"
         }
     }
 
-    /** Returns a human-readable relative time string, e.g. "just now", "5 min ago", "2 h ago" */
     private fun formatTimeAgo(timestampMs: Long): String {
         val diffMs = System.currentTimeMillis() - timestampMs
         val diffSec = diffMs / 1000

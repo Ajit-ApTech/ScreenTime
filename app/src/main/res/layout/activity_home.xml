@@ -3,86 +3,119 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/black"
+    android:background="@color/bg_primary"
     android:orientation="vertical">
 
-    <!-- Header -->
+    <!-- ── Header ── -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:padding="16dp"
+        android:paddingStart="20dp"
+        android:paddingEnd="12dp"
+        android:paddingTop="16dp"
+        android:paddingBottom="8dp"
         android:gravity="center_vertical">
 
-        <TextView
+        <!-- Left: title + subtitle -->
+        <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="@string/app_name"
-            android:textColor="@color/blue_500"
-            android:textSize="24sp"
-            android:textStyle="bold" />
+            android:orientation="vertical">
 
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/app_name"
+                android:textColor="@color/text_primary"
+                android:textSize="22sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.02" />
+
+            <TextView
+                android:id="@+id/tvChildGreeting"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Monitoring your child"
+                android:textColor="@color/text_secondary"
+                android:textSize="13sp" />
+
+        </LinearLayout>
+
+        <!-- Right: date + refresh -->
         <TextView
             android:id="@+id/tvDate"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textColor="@color/white"
-            android:textSize="14sp" />
+            android:textColor="@color/text_secondary"
+            android:textSize="12sp"
+            android:layout_marginEnd="4dp" />
 
-        <!-- Refresh Button -->
         <ImageButton
             android:id="@+id/btnRefresh"
             android:layout_width="40dp"
             android:layout_height="40dp"
-            android:layout_marginStart="12dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="Refresh"
             android:src="@android:drawable/ic_menu_rotate"
-            android:tint="@color/white"
-            android:padding="6dp" />
+            android:tint="@color/text_secondary"
+            android:padding="8dp" />
 
     </LinearLayout>
 
-    <!-- Today's Screen Time Card -->
+    <!-- ── Screen Time Summary Card ── -->
     <androidx.cardview.widget.CardView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_margin="16dp"
-        app:cardCornerRadius="16dp"
-        app:cardElevation="8dp">
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="4dp"
+        app:cardCornerRadius="20dp"
+        app:cardElevation="0dp"
+        app:cardBackgroundColor="@android:color/transparent">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:background="@color/blue_500"
+            android:background="@drawable/bg_screentime_card"
             android:orientation="vertical"
             android:padding="24dp">
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Total usage today"
-                android:textColor="@color/white"
-                android:textSize="14sp" />
+                android:text="📱  Total Screen Time Today"
+                android:textColor="#B0C8FF"
+                android:textSize="13sp"
+                android:letterSpacing="0.04" />
 
             <TextView
                 android:id="@+id/tvTotalScreenTime"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="6dp"
                 android:text="0h 0m"
                 android:textColor="@color/white"
-                android:textSize="42sp"
+                android:textSize="48sp"
                 android:textStyle="bold" />
 
             <!-- Status row -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
+                android:layout_marginTop="16dp"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
+
+                <!-- Live dot + last updated -->
+                <View
+                    android:id="@+id/viewLiveDot"
+                    android:layout_width="8dp"
+                    android:layout_height="8dp"
+                    android:background="@drawable/bg_live_dot"
+                    android:layout_marginEnd="6dp" />
 
                 <TextView
                     android:id="@+id/tvLastUpdate"
@@ -90,15 +123,15 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="Last updated: just now"
-                    android:textColor="@color/white"
+                    android:textColor="#80B0FF"
                     android:textSize="12sp" />
 
                 <TextView
                     android:id="@+id/tvRefreshingStatus"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Refreshing..."
-                    android:textColor="#AAFFFFFF"
+                    android:text="Refreshing…"
+                    android:textColor="#80FFFFFF"
                     android:textSize="12sp"
                     android:visibility="gone" />
 
@@ -108,36 +141,63 @@
 
     </androidx.cardview.widget.CardView>
 
-    <!-- Apps Used Today -->
-    <TextView
-        android:layout_width="wrap_content"
+    <!-- ── Section Header: Apps Used Today ── -->
+    <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginStart="16dp"
-        android:layout_marginTop="24dp"
-        android:text="@string/apps_used_today"
-        android:textColor="@color/white"
-        android:textSize="16sp"
-        android:textStyle="bold" />
+        android:orientation="horizontal"
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp"
+        android:paddingTop="20dp"
+        android:paddingBottom="8dp"
+        android:gravity="center_vertical">
 
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/apps_used_today"
+            android:textColor="@color/text_primary"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tvAppCount"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:paddingStart="10dp"
+            android:paddingEnd="10dp"
+            android:paddingTop="3dp"
+            android:paddingBottom="3dp"
+            android:text="0 apps"
+            android:textColor="@color/accent_blue_light"
+            android:textSize="12sp"
+            android:background="@drawable/bg_pill_neutral" />
+
+    </LinearLayout>
+
+    <!-- ── Apps RecyclerView ── -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rvApps"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
         android:clipToPadding="false"
-        android:padding="16dp"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingTop="4dp"
         android:paddingBottom="80dp" />
 
-    <!-- Footer -->
+    <!-- ── Footer ── -->
     <TextView
         android:id="@+id/tvFooterUpdate"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_margin="16dp"
+        android:paddingBottom="12dp"
         android:gravity="center"
         android:text="Last updated: just now"
-        android:textColor="@color/white"
-        android:textSize="12sp"
+        android:textColor="@color/text_tertiary"
+        android:textSize="11sp"
         android:textAlignment="center" />
 
 </LinearLayout>

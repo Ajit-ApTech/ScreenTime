@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Legacy / Material defaults -->
     <color name="purple_200">#BB86FC</color>
     <color name="purple_500">#6200EE</color>
     <color name="purple_700">#3700B3</color>
@@ -7,8 +8,41 @@
     <color name="teal_700">#018786</color>
     <color name="black">#000000</color>
     <color name="white">#FFFFFF</color>
-    <color name="green_500">#4CAF50</color>
-    <color name="green_700">#388E3C</color>
-    <color name="blue_500">#2196F3</color>
-    <color name="blue_700">#1976D2</color>
+
+    <!-- App Design System -->
+    <!-- Backgrounds -->
+    <color name="bg_primary">#0D0F14</color>
+    <color name="bg_surface">#161A23</color>
+    <color name="bg_card">#1E2330</color>
+    <color name="bg_card_elevated">#252B3B</color>
+
+    <!-- Brand / Accent -->
+    <color name="accent_blue">#4D8DF6</color>
+    <color name="accent_blue_light">#7AAFF9</color>
+    <color name="accent_blue_dark">#2B6FD4</color>
+    <color name="accent_indigo">#6C63FF</color>
+
+    <!-- Status colors -->
+    <color name="status_green">#34C983</color>
+    <color name="status_green_bg">#1A3D2B</color>
+    <color name="status_orange">#F59E0B</color>
+    <color name="status_orange_bg">#3D2E10</color>
+    <color name="status_red">#EF4444</color>
+    <color name="status_red_bg">#3D1414</color>
+
+    <!-- Text -->
+    <color name="text_primary">#FFFFFF</color>
+    <color name="text_secondary">#8A94A6</color>
+    <color name="text_tertiary">#4A5568</color>
+    <color name="text_accent">#4D8DF6</color>
+
+    <!-- Divider / Border -->
+    <color name="divider">#1F2537</color>
+    <color name="border">#2A3145</color>
+
+    <!-- Legacy support -->
+    <color name="blue_500">#4D8DF6</color>
+    <color name="blue_700">#2B6FD4</color>
+    <color name="green_500">#34C983</color>
+    <color name="green_700">#26A069</color>
 </resources>
