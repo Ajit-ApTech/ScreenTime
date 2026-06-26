@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Screentime</string>
+    <string name="enter_your_name">Enter your name</string>
+    <string name="permission_app_usage">Allow App Usage Access</string>
+    <string name="permission_call_log">Allow Call Log Access</string>
+    <string name="permission_contacts">Allow Contacts Access</string>
+    <string name="permission_sms">Allow SMS Access</string>
+    <string name="get_started">Get Started</string>
+    <string name="today">Today</string>
+    <string name="apps_used_today">Apps Used Today</string>
+    <string name="last_updated">Last updated: %s ago</string>
+    <string name="just_now">just now</string>
+    <string name="tracking_notification_title">Screentime</string>
+    <string name="tracking_notification_body">Tracking your daily screen time</string>
+</resources>
