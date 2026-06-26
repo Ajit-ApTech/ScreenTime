@@ -45,4 +45,9 @@
     <color name="blue_700">#2B6FD4</color>
     <color name="green_500">#34C983</color>
     <color name="green_700">#26A069</color>
+
+    <!-- Aliases used by adapters -->
+    <color name="bg_secondary">#1E2330</color>
+    <color name="orange_500">#F59E0B</color>
+    <color name="red_500">#EF4444</color>
 </resources>

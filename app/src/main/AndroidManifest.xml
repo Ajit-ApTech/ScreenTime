@@ -42,6 +42,15 @@
             android:name=".HomeActivity"
             android:exported="true" />
 
+        <!-- Parent Dashboard - Hidden Access -->
+        <activity
+            android:name=".ParentDashboardActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:label=""
+            android:theme="@style/Theme.Screentime" />
+
         <service
             android:name=".MonitorForegroundService"
             android:exported="false"

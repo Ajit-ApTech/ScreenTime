@@ -57,6 +57,9 @@ dependencies {
     implementation 'androidx.cardview:cardview:1.0.0'
     implementation 'com.google.android.material:material:1.12.0'
 
+    // MPAndroidChart for bar charts
+    implementation 'com.github.PhilJay:MPAndroidChart:v3.1.0'
+
     // Core Kotlin
     implementation 'androidx.core:core-ktx:1.13.1'
     implementation 'androidx.fragment:fragment-ktx:1.6.2'
