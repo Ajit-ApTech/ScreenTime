@@ -5,240 +5,222 @@
     android:layout_height="match_parent"
     android:background="@color/bg_primary">
 
+    <!-- ── AppBar (Scrolls away, except TabLayout which pins) ── -->
     <com.google.android.material.appbar.AppBarLayout
+        android:id="@+id/appBarLayout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@android:color/transparent"
+        android:background="@color/bg_primary"
         app:elevation="0dp">
 
-        <com.google.android.material.appbar.CollapsingToolbarLayout
+        <!-- Fixed Header Toolbar (does NOT scroll) -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="4dp"
+            android:paddingEnd="16dp"
+            android:background="@color/bg_primary">
+
+            <ImageButton
+                android:id="@+id/btnBack"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@android:drawable/ic_menu_close_clear_cancel"
+                android:contentDescription="Back" />
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Parent Dashboard"
+                android:textColor="@color/text_primary"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:gravity="center" />
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <View
+                    android:id="@+id/viewLiveDot"
+                    android:layout_width="8dp"
+                    android:layout_height="8dp"
+                    android:background="@drawable/bg_live_dot"
+                    android:layout_marginEnd="4dp" />
+
+                <TextView
+                    android:id="@+id/tvLiveStatus"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Live"
+                    android:textColor="@color/status_green"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Scrollable section: Child Selector + Premium Card -->
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:orientation="vertical"
             app:layout_scrollFlags="scroll|exitUntilCollapsed">
 
+            <!-- Child Selector -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:layout_marginTop="?attr/actionBarSize"> <!-- Offset for fixed header -->
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:paddingTop="8dp"
+                android:paddingBottom="8dp">
 
-                <!-- Child Selector -->
-                <LinearLayout
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Select Child"
+                    android:textColor="@color/text_primary"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="8dp" />
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/rvChildSelector"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="16dp">
+                    android:orientation="horizontal"
+                    android:clipToPadding="false"
+                    android:paddingStart="4dp"
+                    android:paddingEnd="4dp" />
 
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Select Child"
-                        android:textColor="@color/text_primary"
-                        android:textSize="14sp"
-                        android:textStyle="bold"
-                        android:layout_marginBottom="8dp" />
-
-                    <androidx.recyclerview.widget.RecyclerView
-                        android:id="@+id/rvChildSelector"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:clipToPadding="false"
-                        android:paddingStart="4dp"
-                        android:paddingEnd="4dp" />
-
-                    <TextView
-                        android:id="@+id/tvNoData"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:text="No child data found"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="13sp"
-                        android:visibility="gone" />
-
-                </LinearLayout>
-
-                <!-- Premium Screen Time Summary Card (Merged with Live Status) -->
-                <androidx.cardview.widget.CardView
-                    android:layout_width="match_parent"
+                <TextView
+                    android:id="@+id/tvNoData"
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="16dp"
-                    android:layout_marginEnd="16dp"
-                    android:layout_marginBottom="16dp"
-                    app:cardCornerRadius="20dp"
-                    app:cardElevation="0dp"
-                    app:cardBackgroundColor="@android:color/transparent">
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:background="@drawable/bg_screentime_card"
-                        android:orientation="vertical"
-                        android:padding="24dp">
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="📱  Total Screen Time Today"
-                            android:textColor="#B0C8FF"
-                            android:textSize="13sp"
-                            android:letterSpacing="0.04" />
-
-                        <TextView
-                            android:id="@+id/tvTotalScreenTime"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="6dp"
-                            android:text="0h 0m"
-                            android:textColor="@color/white"
-                            android:textSize="48sp"
-                            android:textStyle="bold" />
-
-                        <!-- Divider -->
-                        <View
-                            android:layout_width="match_parent"
-                            android:layout_height="1dp"
-                            android:background="#33FFFFFF"
-                            android:layout_marginTop="16dp"
-                            android:layout_marginBottom="16dp" />
-
-                        <!-- Live Current App Section -->
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Current App"
-                            android:textColor="#B0C8FF"
-                            android:textSize="11sp"
-                            android:textStyle="bold" />
-
-                        <TextView
-                            android:id="@+id/tvCurrentApp"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="4dp"
-                            android:text="Not in use"
-                            android:textColor="@color/white"
-                            android:textSize="20sp"
-                            android:textStyle="bold" />
-
-                        <TextView
-                            android:id="@+id/tvSince"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="2dp"
-                            android:text="—"
-                            android:textColor="#80B0FF"
-                            android:textSize="13sp" />
-
-                        <!-- Bottom row: Last Sync -->
-                        <TextView
-                            android:id="@+id/tvLastSync"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="16dp"
-                            android:text="Last sync: just now"
-                            android:textColor="#80B0FF"
-                            android:textSize="12sp" />
-
-                    </LinearLayout>
-                </androidx.cardview.widget.CardView>
+                    android:layout_marginTop="8dp"
+                    android:text="No child data found"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="13sp"
+                    android:visibility="gone" />
 
             </LinearLayout>
 
-        </com.google.android.material.appbar.CollapsingToolbarLayout>
+            <!-- Premium Gradient Screen Time Card -->
+            <androidx.cardview.widget.CardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="16dp"
+                android:layout_marginEnd="16dp"
+                android:layout_marginBottom="16dp"
+                app:cardCornerRadius="20dp"
+                app:cardElevation="0dp"
+                app:cardBackgroundColor="@android:color/transparent">
 
-        <!-- Tab Layout pinning at top when scrolled -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/bg_screentime_card"
+                    android:orientation="vertical"
+                    android:padding="24dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="📱  Total Screen Time Today"
+                        android:textColor="#B0C8FF"
+                        android:textSize="13sp"
+                        android:letterSpacing="0.04" />
+
+                    <TextView
+                        android:id="@+id/tvTotalScreenTime"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:text="0h 0m"
+                        android:textColor="@color/white"
+                        android:textSize="48sp"
+                        android:textStyle="bold" />
+
+                    <!-- Divider -->
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:background="#33FFFFFF"
+                        android:layout_marginTop="16dp"
+                        android:layout_marginBottom="16dp" />
+
+                    <!-- Live Current App -->
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="CURRENT APP"
+                        android:textColor="#B0C8FF"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        android:letterSpacing="0.08" />
+
+                    <TextView
+                        android:id="@+id/tvCurrentApp"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="Not in use"
+                        android:textColor="@color/white"
+                        android:textSize="20sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvSince"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="—"
+                        android:textColor="#80B0FF"
+                        android:textSize="13sp" />
+
+                    <!-- Last Sync -->
+                    <TextView
+                        android:id="@+id/tvLastSync"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:text="Last sync: just now"
+                        android:textColor="#80B0FF"
+                        android:textSize="12sp" />
+
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+        </LinearLayout>
+
+        <!-- TabLayout pins at the top after scroll -->
         <com.google.android.material.tabs.TabLayout
             android:id="@+id/tabLayout"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:background="@color/bg_primary"
             app:tabMode="fixed"
             app:tabGravity="fill"
-            android:background="@color/bg_primary"
             app:tabIndicatorColor="@color/accent_blue"
             app:tabTextColor="@color/text_secondary"
             app:tabSelectedTextColor="@color/accent_blue"
-            app:tabIndicatorHeight="3dp"
-            app:layout_collapseMode="pin" />
+            app:tabIndicatorHeight="3dp" />
 
     </com.google.android.material.appbar.AppBarLayout>
 
-    <!-- Scrollable content area -->
+    <!-- ── Scrollable Content: ViewPager2 ── -->
     <androidx.viewpager2.widget.ViewPager2
         android:id="@+id/viewPager"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         app:layout_behavior="@string/appbar_scrolling_view_behavior" />
-
-    <!-- Fixed Header Toolbar on top of everything -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="?attr/actionBarSize"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:paddingStart="16dp"
-        android:paddingEnd="16dp"
-        android:background="@color/bg_primary"
-        app:layout_behavior="com.google.android.material.appbar.AppBarLayout$ScrollingViewBehavior"
-        android:elevation="4dp"
-        android:translationZ="4dp"
-        app:layout_anchor="@id/rvChildSelector"
-        app:layout_anchorGravity="top">
-        <!-- We use a fixed layout at the absolute top by removing app:layout_behavior from a generic View and just placing it at the top of CoordinatorLayout -->
-    </LinearLayout>
-    
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="?attr/actionBarSize"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:paddingStart="16dp"
-        android:paddingEnd="16dp"
-        android:background="@color/bg_primary"
-        android:elevation="4dp">
-
-        <ImageButton
-            android:id="@+id/btnBack"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:src="@android:drawable/ic_menu_close_clear_cancel"
-            android:contentDescription="Back" />
-
-        <TextView
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Parent Dashboard"
-            android:textColor="@color/text_primary"
-            android:textSize="20sp"
-            android:textStyle="bold"
-            android:gravity="center" />
-
-        <LinearLayout
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical">
-
-            <View
-                android:id="@+id/viewLiveDot"
-                android:layout_width="8dp"
-                android:layout_height="8dp"
-                android:background="@drawable/bg_live_dot"
-                android:layout_marginEnd="4dp" />
-
-            <TextView
-                android:id="@+id/tvLiveStatus"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Live"
-                android:textColor="@color/status_green"
-                android:textSize="12sp"
-                android:textStyle="bold" />
-
-        </LinearLayout>
-    </LinearLayout>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
