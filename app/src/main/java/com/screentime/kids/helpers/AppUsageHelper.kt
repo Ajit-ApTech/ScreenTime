@@ -49,55 +49,29 @@ class AppUsageHelper(private val context: Context) {
 
         android.util.Log.d("AppUsageHelper", "Querying exact events from $todayStart to $now")
 
-        val events = usageStatsManager.queryEvents(todayStart, now)
-        val event = UsageEvents.Event()
+        val stats = usageStatsManager.queryUsageStats(
+            UsageStatsManager.INTERVAL_DAILY,
+            todayStart,
+            now
+        )
 
-        // Track precise durations and last used times
-        val appUsageTimeMap = mutableMapOf<String, Long>()
-        val appLastResumedMap = mutableMapOf<String, Long>()
-        val appLastUsedMap = mutableMapOf<String, Long>()
-
-        while (events.hasNextEvent()) {
-            events.getNextEvent(event)
-            val pkg = event.packageName
-            val time = event.timeStamp
-            
-            // We only care about foreground activity transitions
-            if (event.eventType == UsageEvents.Event.ACTIVITY_RESUMED) {
-                appLastResumedMap[pkg] = time
-                appLastUsedMap[pkg] = time
-            } else if (event.eventType == UsageEvents.Event.ACTIVITY_PAUSED || event.eventType == UsageEvents.Event.ACTIVITY_STOPPED) {
-                val lastResumed = appLastResumedMap[pkg]
-                if (lastResumed != null) {
-                    val duration = time - lastResumed
-                    if (duration > 0) {
-                        appUsageTimeMap[pkg] = appUsageTimeMap.getOrDefault(pkg, 0L) + duration
-                    }
-                    appLastResumedMap.remove(pkg) // Consumed
-                }
-                appLastUsedMap[pkg] = time
-            }
-        }
-
-        // Add time for apps that are currently resumed right now
-        appLastResumedMap.forEach { (pkg, lastResumed) ->
-            val duration = now - lastResumed
-            if (duration > 0) {
-                appUsageTimeMap[pkg] = appUsageTimeMap.getOrDefault(pkg, 0L) + duration
-            }
-        }
+        android.util.Log.d("AppUsageHelper", "Raw stats count: ${stats?.size ?: 0}")
 
         val todayDate = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
         val nameMap = mutableMapOf<String, String>()
-        val appSessions = mutableListOf<AppSession>()
+        val usageMap = mutableMapOf<String, Pair<Long, Long>>()
 
-        for ((packageName, totalTimeMs) in appUsageTimeMap) {
-            // Skip apps with practically no usage
-            if (totalTimeMs < 1000) continue
-            // Skip this monitoring app itself
+        for (stat in stats ?: emptyList()) {
+            val packageName = stat.packageName
+            val totalTime = stat.totalTimeInForeground
+            val lastUsed = stat.lastTimeUsed
+
+            if (totalTime <= 0) continue
             if (packageName == context.packageName) continue
-            // Skip invisible OS daemons and the home screen launcher
             if (isExcluded(packageName)) continue
+
+            // Only consider buckets that are for today
+            if (stat.lastTimeUsed < todayStart) continue
 
             val appName = nameMap.getOrPut(packageName) {
                 try {
@@ -109,20 +83,26 @@ class AppUsageHelper(private val context: Context) {
                 }
             }
 
-            appSessions.add(
-                AppSession(
-                    appName = appName,
-                    packageName = packageName,
-                    totalTimeSeconds = totalTimeMs / 1000,
-                    date = todayDate,
-                    lastUsedTimestamp = appLastUsedMap[packageName] ?: 0L
-                )
+            val existing = usageMap[packageName]
+            if (existing == null || totalTime > existing.first) {
+                usageMap[packageName] = Pair(totalTime, lastUsed)
+                nameMap[packageName] = appName
+            }
+        }
+
+        val appSessions = usageMap.map { (packageName, usage) ->
+            val (totalTime, lastUsed) = usage
+            AppSession(
+                appName = nameMap[packageName] ?: packageName,
+                packageName = packageName,
+                totalTimeSeconds = totalTime / 1000,
+                date = todayDate,
+                lastUsedTimestamp = lastUsed
             )
         }
 
-        android.util.Log.d("AppUsageHelper", "Returning ${appSessions.size} exact app sessions")
+        android.util.Log.d("AppUsageHelper", "Returning ${appSessions.size} app sessions")
 
-        // Sort by most recently used first
         return appSessions.sortedByDescending { it.lastUsedTimestamp }
     }
 
@@ -133,36 +113,29 @@ class AppUsageHelper(private val context: Context) {
         val now = System.currentTimeMillis()
         val todayStart = getStartOfDay(now)
 
-        val events = usageStatsManager.queryEvents(todayStart, now)
-        val event = UsageEvents.Event()
-        
-        var currentForegroundPkg: String? = null
-        var currentForegroundStartTime = 0L
+        val stats = usageStatsManager.queryUsageStats(
+            UsageStatsManager.INTERVAL_DAILY,
+            todayStart,
+            now
+        )
 
-        while (events.hasNextEvent()) {
-            events.getNextEvent(event)
-            if (event.eventType == UsageEvents.Event.ACTIVITY_RESUMED) {
-                currentForegroundPkg = event.packageName
-                currentForegroundStartTime = event.timeStamp
-            } else if (event.eventType == UsageEvents.Event.ACTIVITY_PAUSED || event.eventType == UsageEvents.Event.ACTIVITY_STOPPED) {
-                if (currentForegroundPkg == event.packageName) {
-                    currentForegroundPkg = null // It was backgrounded
-                }
+        val bestEntry = stats
+            ?.filter { stat ->
+                stat.lastTimeUsed > todayStart &&
+                stat.packageName != context.packageName &&
+                !isExcluded(stat.packageName)
             }
-        }
-
-        if (currentForegroundPkg == null) return null
-        if (currentForegroundPkg == context.packageName) return null
-        if (isExcluded(currentForegroundPkg)) return null
+            ?.maxByOrNull { it.lastTimeUsed }
+            ?: return null
 
         return try {
-            val appInfo = packageManager.getApplicationInfo(currentForegroundPkg, 0)
+            val appInfo = packageManager.getApplicationInfo(bestEntry.packageName, 0)
             val appName = packageManager.getApplicationLabel(appInfo).toString()
             com.screentime.kids.models.CurrentAppInfo(
                 appName = appName,
-                packageName = currentForegroundPkg,
-                startTime = currentForegroundStartTime,
-                durationSeconds = (now - currentForegroundStartTime) / 1000
+                packageName = bestEntry.packageName,
+                startTime = bestEntry.lastTimeUsed,
+                durationSeconds = (now - bestEntry.lastTimeUsed) / 1000
             )
         } catch (e: Exception) {
             null
