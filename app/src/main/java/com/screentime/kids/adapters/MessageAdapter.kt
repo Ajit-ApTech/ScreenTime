@@ -40,28 +40,30 @@ class MessageAdapter(
         val message = items[position]
 
         // Set icon based on message type
-        val (iconRes, typeText) = when (message.type.lowercase()) {
+        val (iconColor, typeText, badgeBg) = when (message.type.lowercase()) {
             "received" -> {
                 holder.ivMessageIcon.setColorFilter(ContextCompat.getColor(context, R.color.blue_500))
-                Pair(R.drawable.ic_message_incoming, "Received")
+                listOf(R.color.blue_500, "Received", R.drawable.bg_pill_neutral)
             }
             "sent" -> {
                 holder.ivMessageIcon.setColorFilter(ContextCompat.getColor(context, R.color.green_500))
-                Pair(R.drawable.ic_message_outgoing, "Sent")
+                listOf(R.color.green_500, "Sent", R.drawable.bg_pill_green)
             }
             else -> {
                 holder.ivMessageIcon.setColorFilter(ContextCompat.getColor(context, R.color.text_tertiary))
-                Pair(R.drawable.ic_message_unknown, "Unknown")
+                listOf(R.color.text_tertiary, "Unknown", R.drawable.bg_pill_neutral)
             }
         }
 
-        holder.ivMessageIcon.setImageResource(iconRes)
         holder.tvContactName.text = if (message.contactName.isNotBlank() && message.contactName != "Unknown") {
             message.contactName
         } else {
             message.phoneNumber
         }
-        holder.tvMessageType.text = typeText
+        
+        holder.tvMessageType.text = typeText as String
+        holder.tvMessageType.setBackgroundResource(badgeBg as Int)
+        
         holder.tvTime.text = if (message.timestamp > 0) timeSdf.format(Date(message.timestamp)) else "--"
         holder.tvMessageLength.text = "${message.messageLength} chars"
     }

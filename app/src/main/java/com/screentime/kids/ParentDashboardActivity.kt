@@ -160,12 +160,10 @@ class ParentDashboardActivity : AppCompatActivity() {
         binding.tvLiveStatus.text = if (child.isOnline) "🟢 ${child.name} · Live" else "⚫ ${child.name} · Offline"
 
         // Clear old data
-        binding.tvCurrentApp.text = "—"
+        binding.tvCurrentApp.text = "Not in use"
         binding.tvSince.text = "—"
         binding.tvTotalScreenTime.text = "0h 0m"
-        binding.tvAppsUsed.text = "0"
-        binding.tvTotalCalls.text = "0"
-        binding.tvTotalMessages.text = "0"
+        updateTabTitles(0, 0, 0)
 
         // Start real-time listener for current app (Firestore live updates)
         db.collection("children").document(child.id)
@@ -211,12 +209,12 @@ class ParentDashboardActivity : AppCompatActivity() {
                 val todayCalls    = rawCallLogs.filter { (it["date"] as? String) == today }
                 val todayMessages = rawMessages.filter { (it["date"] as? String) == today }
 
-                // KPI cards
+                // KPI cards - Now just Total Screen Time
                 val totalSecs = todaySessions.sumOf { (it["totalTimeSeconds"] as? Long) ?: 0L }
                 binding.tvTotalScreenTime.text = formatDuration(totalSecs)
-                binding.tvAppsUsed.text    = todaySessions.size.toString()
-                binding.tvTotalCalls.text  = todayCalls.size.toString()
-                binding.tvTotalMessages.text = todayMessages.size.toString()
+
+                // Update Tab titles with counts
+                updateTabTitles(todaySessions.size, todayCalls.size, todayMessages.size)
 
                 // Update last sync time
                 lastSyncTime = System.currentTimeMillis()
@@ -259,6 +257,15 @@ class ParentDashboardActivity : AppCompatActivity() {
                 callLogFragment.updateCallLogs(callRecordModels)
                 messageFragment.updateMessages(messageModels)
             }
+    }
+
+    private fun updateTabTitles(appCount: Int, callCount: Int, msgCount: Int) {
+        val tabLayout = binding.tabLayout
+        if (tabLayout.tabCount >= 3) {
+            tabLayout.getTabAt(0)?.text = "📱 Apps ($appCount)"
+            tabLayout.getTabAt(1)?.text = "📞 Calls ($callCount)"
+            tabLayout.getTabAt(2)?.text = "💬 Messages ($msgCount)"
+        }
     }
 
     private fun formatDuration(totalSeconds: Long): String {

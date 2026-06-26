@@ -42,22 +42,25 @@ class CallLogAdapter(
         // Reuse ic_call drawable, just tint it based on call type
         holder.ivCallType.setImageResource(R.drawable.ic_call)
 
-        val (color, typeText, durationText) = when (call.type.lowercase()) {
-            "incoming" -> Triple(R.color.blue_500,   "Incoming", formatDuration(call.durationSeconds))
-            "outgoing" -> Triple(R.color.green_500,  "Outgoing", formatDuration(call.durationSeconds))
-            "missed"   -> Triple(R.color.status_red, "Missed",   "—")
-            else       -> Triple(R.color.text_secondary, call.type, "—")
+        val (iconColor, typeText, durationText, badgeBg) = when (call.type.lowercase()) {
+            "incoming" -> listOf(R.color.blue_500,   "Incoming", formatDuration(call.durationSeconds), R.drawable.bg_pill_neutral)
+            "outgoing" -> listOf(R.color.green_500,  "Outgoing", formatDuration(call.durationSeconds), R.drawable.bg_pill_green)
+            "missed"   -> listOf(R.color.status_red, "Missed",   "0s", R.drawable.bg_pill_red)
+            else       -> listOf(R.color.text_secondary, call.type, "0s", R.drawable.bg_pill_neutral)
         }
 
-        holder.ivCallType.setColorFilter(ContextCompat.getColor(context, color))
+        holder.ivCallType.setColorFilter(ContextCompat.getColor(context, iconColor as Int))
         holder.tvContactName.text = if (call.contactName.isNotBlank() && call.contactName != "Unknown") {
             call.contactName
         } else {
             call.phoneNumber
         }
-        holder.tvCallType.text = typeText
+        
+        holder.tvCallType.text = typeText as String
+        holder.tvCallType.setBackgroundResource(badgeBg as Int)
+        
         holder.tvTime.text = if (call.timestamp > 0) timeSdf.format(Date(call.timestamp)) else "--"
-        holder.tvDuration.text = durationText
+        holder.tvDuration.text = durationText as String
     }
 
     override fun getItemCount(): Int = items.size
