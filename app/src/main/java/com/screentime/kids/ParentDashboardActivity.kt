@@ -235,7 +235,7 @@ class ParentDashboardActivity : AppCompatActivity() {
                         date             = today,
                         lastUsedTimestamp = (map["lastUsedTimestamp"] as? Long) ?: 0L
                     )
-                }.sortedByDescending { it.totalTimeSeconds }
+                }.sortedByDescending { it.lastUsedTimestamp }
 
                 val callRecordModels = todayCalls.mapNotNull { map ->
                     CallRecord(
@@ -339,18 +339,20 @@ class ParentDashboardActivity : AppCompatActivity() {
 
         // Time pill in the bottom stat box
         val timePill = view.findViewById<TextView>(R.id.bsTvTimePill)
-        timePill.text = totalTimeText
         val hours = app.totalTimeSeconds / 3600
         when {
             hours < 1 -> {
+                timePill.text = "Light use"
                 timePill.setTextColor(ContextCompat.getColor(this, R.color.status_green))
                 timePill.setBackgroundResource(R.drawable.bg_pill_green)
             }
             hours < 2 -> {
+                timePill.text = "Moderate use"
                 timePill.setTextColor(ContextCompat.getColor(this, R.color.status_orange))
                 timePill.setBackgroundResource(R.drawable.bg_pill_orange)
             }
             else -> {
+                timePill.text = "Heavy use"
                 timePill.setTextColor(ContextCompat.getColor(this, R.color.status_red))
                 timePill.setBackgroundResource(R.drawable.bg_pill_red)
             }

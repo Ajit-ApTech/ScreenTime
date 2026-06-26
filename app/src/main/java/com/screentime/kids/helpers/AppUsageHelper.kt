@@ -50,7 +50,7 @@ class AppUsageHelper(private val context: Context) {
         android.util.Log.d("AppUsageHelper", "Querying exact events from $todayStart to $now")
 
         val stats = usageStatsManager.queryUsageStats(
-            UsageStatsManager.INTERVAL_DAILY,
+            UsageStatsManager.INTERVAL_BEST,
             todayStart,
             now
         )
@@ -70,8 +70,12 @@ class AppUsageHelper(private val context: Context) {
             if (packageName == context.packageName) continue
             if (isExcluded(packageName)) continue
 
-            // Only consider buckets that are for today
-            if (stat.lastTimeUsed < todayStart) continue
+            // ── Today-only guard: reject anything last used before midnight ──────
+            // This prevents INTERVAL_BEST from returning stale multi-day buckets
+            if (lastUsed < todayStart) continue
+
+            // ── Sanity cap: reject any bucket > 24 hours (impossible for a single day) ─
+            val cappedTime = minOf(totalTime, 86_400_000L)
 
             val appName = nameMap.getOrPut(packageName) {
                 try {
@@ -84,8 +88,8 @@ class AppUsageHelper(private val context: Context) {
             }
 
             val existing = usageMap[packageName]
-            if (existing == null || totalTime > existing.first) {
-                usageMap[packageName] = Pair(totalTime, lastUsed)
+            if (existing == null || cappedTime > existing.first) {
+                usageMap[packageName] = Pair(cappedTime, lastUsed)
                 nameMap[packageName] = appName
             }
         }
@@ -101,8 +105,9 @@ class AppUsageHelper(private val context: Context) {
             )
         }
 
-        android.util.Log.d("AppUsageHelper", "Returning ${appSessions.size} app sessions")
+        android.util.Log.d("AppUsageHelper", "Returning ${appSessions.size} app sessions (today-filtered)")
 
+        // Sort by most recently used first
         return appSessions.sortedByDescending { it.lastUsedTimestamp }
     }
 
@@ -114,14 +119,14 @@ class AppUsageHelper(private val context: Context) {
         val todayStart = getStartOfDay(now)
 
         val stats = usageStatsManager.queryUsageStats(
-            UsageStatsManager.INTERVAL_DAILY,
+            UsageStatsManager.INTERVAL_BEST,
             todayStart,
             now
         )
 
         val bestEntry = stats
             ?.filter { stat ->
-                stat.lastTimeUsed > todayStart &&
+                stat.lastTimeUsed >= todayStart &&
                 stat.packageName != context.packageName &&
                 !isExcluded(stat.packageName)
             }
