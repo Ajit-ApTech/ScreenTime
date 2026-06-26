@@ -3,6 +3,7 @@ package com.screentime.kids.helpers
 import android.content.Context
 import android.util.Log
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import com.screentime.kids.models.AppSession
@@ -88,8 +89,8 @@ class FirebaseHelper(private val context: Context) {
 
         val document = db.collection(collectionName).document(deviceId)
 
-        // Build the payload — omit currentApp key entirely when null (cleaner than writing null)
-        val data = mutableMapOf<String, Any>(
+        // ── Step 1: Overwrite app usage + metadata (this is correct — always want the latest full list) ──
+        val baseData = mutableMapOf<String, Any>(
             "deviceId" to deviceId,
             "childName" to childName,
             "lastSeen" to System.currentTimeMillis(),
@@ -101,8 +102,29 @@ class FirebaseHelper(private val context: Context) {
                     "lastUsedTimestamp" to session.lastUsedTimestamp,
                     "date" to session.date
                 )
-            },
-            "callLogs" to callLogs.map { call ->
+            }
+        )
+
+        if (currentApp != null) {
+            baseData["currentApp"] = mapOf(
+                "appName" to currentApp.appName,
+                "packageName" to currentApp.packageName,
+                "startTime" to currentApp.startTime,
+                "durationSeconds" to currentApp.durationSeconds
+            )
+        }
+
+        document.set(baseData, SetOptions.merge())
+            .addOnSuccessListener {
+                Log.d("FirebaseHelper", "Base sync successful ✓")
+            }
+            .addOnFailureListener { e ->
+                Log.e("FirebaseHelper", "Base sync failed: ${e.message}")
+            }
+
+        // ── Step 2: Append NEW call logs (arrayUnion never duplicates, never overwrites existing) ──
+        if (callLogs.isNotEmpty()) {
+            val callMaps = callLogs.map { call ->
                 mapOf(
                     "contactName" to call.contactName,
                     "phoneNumber" to call.phoneNumber,
@@ -111,8 +133,21 @@ class FirebaseHelper(private val context: Context) {
                     "timestamp" to call.timestamp,
                     "date" to call.date
                 )
-            },
-            "messages" to messages.map { message ->
+            }
+            document.update("callLogs", FieldValue.arrayUnion(*callMaps.toTypedArray()))
+                .addOnSuccessListener {
+                    Log.d("FirebaseHelper", "Call logs appended: ${callLogs.size} new records ✓")
+                }
+                .addOnFailureListener { e ->
+                    // Field may not exist yet on first run — initialise it
+                    document.update("callLogs", callMaps)
+                    Log.w("FirebaseHelper", "callLogs init fallback: ${e.message}")
+                }
+        }
+
+        // ── Step 3: Append NEW messages (same pattern) ──
+        if (messages.isNotEmpty()) {
+            val messageMaps = messages.map { message ->
                 mapOf(
                     "contactName" to message.contactName,
                     "phoneNumber" to message.phoneNumber,
@@ -122,24 +157,15 @@ class FirebaseHelper(private val context: Context) {
                     "date" to message.date
                 )
             }
-        )
-
-        // Only add currentApp if we actually have one — avoids writing `null` to Firestore
-        if (currentApp != null) {
-            data["currentApp"] = mapOf(
-                "appName" to currentApp.appName,
-                "packageName" to currentApp.packageName,
-                "startTime" to currentApp.startTime,
-                "durationSeconds" to currentApp.durationSeconds
-            )
+            document.update("messages", FieldValue.arrayUnion(*messageMaps.toTypedArray()))
+                .addOnSuccessListener {
+                    Log.d("FirebaseHelper", "Messages appended: ${messages.size} new records ✓")
+                }
+                .addOnFailureListener { e ->
+                    // Field may not exist yet on first run — initialise it
+                    document.update("messages", messageMaps)
+                    Log.w("FirebaseHelper", "messages init fallback: ${e.message}")
+                }
         }
-
-        document.set(data, SetOptions.merge())
-            .addOnSuccessListener {
-                Log.d("FirebaseHelper", "Sync successful ✓")
-            }
-            .addOnFailureListener { e ->
-                Log.e("FirebaseHelper", "Sync failed: ${e.message}")
-            }
     }
 }

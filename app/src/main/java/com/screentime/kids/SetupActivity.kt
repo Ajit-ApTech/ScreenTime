@@ -147,18 +147,16 @@ class SetupActivity : AppCompatActivity() {
     }
 
     private fun updatePermissionButtons() {
-        if (isAppUsageGranted) {
-            binding.btnAppUsage.text = "Allow App Usage Access ✅"
-        }
-        if (isCallLogGranted) {
-            binding.btnCallLog.text = "Allow Call Log Access ✅"
-        }
-        if (isContactsGranted) {
-            binding.btnContacts.text = "Allow Contacts Access ✅"
-        }
-        if (isSmsGranted) {
-            binding.btnSms.text = "Allow SMS Access ✅"
-        }
+        // Always check the ACTUAL system permission state, not just in-memory flags.
+        // This ensures the UI is correct even after the app is restarted.
+        isCallLogGranted = ContextCompat.checkSelfPermission(this, permissionCallLog) == PackageManager.PERMISSION_GRANTED
+        isContactsGranted = ContextCompat.checkSelfPermission(this, permissionContacts) == PackageManager.PERMISSION_GRANTED
+        isSmsGranted = ContextCompat.checkSelfPermission(this, permissionSms) == PackageManager.PERMISSION_GRANTED
+
+        if (isAppUsageGranted) binding.btnAppUsage.text = "Allow App Usage Access ✅"
+        if (isCallLogGranted) binding.btnCallLog.text = "Allow Call Log Access ✅"
+        if (isContactsGranted) binding.btnContacts.text = "Allow Contacts Access ✅"
+        if (isSmsGranted) binding.btnSms.text = "Allow SMS Access ✅"
     }
 
     private fun checkAllConditions() {
