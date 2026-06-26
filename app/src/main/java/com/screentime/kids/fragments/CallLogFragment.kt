@@ -35,7 +35,9 @@ class CallLogFragment : Fragment() {
 
     fun updateCallLogs(newCalls: List<CallRecord>) {
         pendingCalls = newCalls
-        (binding.rvCallLog.adapter as? CallLogAdapter)?.submitList(newCalls)
+        if (_binding != null) {
+            (binding.rvCallLog.adapter as? CallLogAdapter)?.submitList(newCalls)
+        }
     }
 
     override fun onDestroyView() {

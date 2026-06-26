@@ -36,7 +36,9 @@ class AppUsageFragment : Fragment() {
 
     fun updateAppSessions(newSessions: List<AppSession>) {
         pendingSessions = newSessions
-        (binding.rvAppUsage.adapter as? AppUsageAdapter)?.submitList(newSessions)
+        if (_binding != null) {
+            (binding.rvAppUsage.adapter as? AppUsageAdapter)?.submitList(newSessions)
+        }
     }
 
     override fun onDestroyView() {

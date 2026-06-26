@@ -35,7 +35,9 @@ class MessageFragment : Fragment() {
 
     fun updateMessages(newMessages: List<MessageRecord>) {
         pendingMessages = newMessages
-        (binding.rvMessages.adapter as? MessageAdapter)?.submitList(newMessages)
+        if (_binding != null) {
+            (binding.rvMessages.adapter as? MessageAdapter)?.submitList(newMessages)
+        }
     }
 
     override fun onDestroyView() {
