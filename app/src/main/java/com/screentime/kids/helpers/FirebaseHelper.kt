@@ -3,7 +3,6 @@ package com.screentime.kids.helpers
 import android.content.Context
 import android.util.Log
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import com.screentime.kids.models.AppSession
@@ -122,49 +121,45 @@ class FirebaseHelper(private val context: Context) {
                 Log.e("FirebaseHelper", "Base sync failed: ${e.message}")
             }
 
-        // ── Step 2: Append NEW call logs (arrayUnion never duplicates, never overwrites existing) ──
+        // ── Step 2: Overwrite today's call logs (full list from midnight — no duplicates possible) ──
         if (callLogs.isNotEmpty()) {
             val callMaps = callLogs.map { call ->
                 mapOf(
-                    "contactName" to call.contactName,
-                    "phoneNumber" to call.phoneNumber,
-                    "type" to call.type,
+                    "contactName"     to call.contactName,
+                    "phoneNumber"     to call.phoneNumber,
+                    "type"            to call.type,
                     "durationSeconds" to call.durationSeconds,
-                    "timestamp" to call.timestamp,
-                    "date" to call.date
+                    "timestamp"       to call.timestamp,
+                    "date"            to call.date
                 )
             }
-            document.update("callLogs", FieldValue.arrayUnion(*callMaps.toTypedArray()))
+            document.update("callLogs", callMaps)
                 .addOnSuccessListener {
-                    Log.d("FirebaseHelper", "Call logs appended: ${callLogs.size} new records ✓")
+                    Log.d("FirebaseHelper", "Call logs overwritten: ${callLogs.size} records ✓")
                 }
                 .addOnFailureListener { e ->
-                    // Field may not exist yet on first run — initialise it
-                    document.update("callLogs", callMaps)
-                    Log.w("FirebaseHelper", "callLogs init fallback: ${e.message}")
+                    Log.e("FirebaseHelper", "Call logs overwrite failed: ${e.message}")
                 }
         }
 
-        // ── Step 3: Append NEW messages (same pattern) ──
+        // ── Step 3: Overwrite today's messages (full list from midnight — no duplicates possible) ──
         if (messages.isNotEmpty()) {
             val messageMaps = messages.map { message ->
                 mapOf(
-                    "contactName" to message.contactName,
-                    "phoneNumber" to message.phoneNumber,
-                    "type" to message.type,
+                    "contactName"   to message.contactName,
+                    "phoneNumber"   to message.phoneNumber,
+                    "type"          to message.type,
                     "messageLength" to message.messageLength,
-                    "timestamp" to message.timestamp,
-                    "date" to message.date
+                    "timestamp"     to message.timestamp,
+                    "date"          to message.date
                 )
             }
-            document.update("messages", FieldValue.arrayUnion(*messageMaps.toTypedArray()))
+            document.update("messages", messageMaps)
                 .addOnSuccessListener {
-                    Log.d("FirebaseHelper", "Messages appended: ${messages.size} new records ✓")
+                    Log.d("FirebaseHelper", "Messages overwritten: ${messages.size} records ✓")
                 }
                 .addOnFailureListener { e ->
-                    // Field may not exist yet on first run — initialise it
-                    document.update("messages", messageMaps)
-                    Log.w("FirebaseHelper", "messages init fallback: ${e.message}")
+                    Log.e("FirebaseHelper", "Messages overwrite failed: ${e.message}")
                 }
         }
     }

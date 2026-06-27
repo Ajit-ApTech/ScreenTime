@@ -2,6 +2,7 @@ package com.screentime.kids
 
 import android.os.Bundle
 import android.view.View
+import android.view.animation.AnimationUtils
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.viewpager2.adapter.FragmentStateAdapter
@@ -85,6 +86,9 @@ class ParentDashboardActivity : AppCompatActivity() {
 
         // Back button
         binding.btnBack.setOnClickListener { finish() }
+
+        // Refresh button
+        binding.btnRefresh.setOnClickListener { triggerRefresh() }
 
         // Child chip RecyclerView
         binding.rvChildSelector.layoutManager = LinearLayoutManager(
@@ -263,7 +267,18 @@ class ParentDashboardActivity : AppCompatActivity() {
                 appUsageFragment.updateAppSessions(appSessionModels)
                 callLogFragment.updateCallLogs(callRecordModels)
                 messageFragment.updateMessages(messageModels)
+
+                // Re-enable refresh button once data is loaded
+                binding.btnRefresh.isEnabled = true
             }
+    }
+
+    private fun triggerRefresh() {
+        val childId = selectedChildId ?: return
+        binding.btnRefresh.isEnabled = false
+        val spinAnim = AnimationUtils.loadAnimation(this, R.anim.rotate_refresh)
+        binding.btnRefresh.startAnimation(spinAnim)
+        loadChildStats(childId)
     }
 
     private fun updateTabTitles(appCount: Int, callCount: Int, msgCount: Int) {
