@@ -1,4 +1,4 @@
-package com.screentime.kids.fragments
+package com.screentime.parent.fragments
 
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -6,10 +6,10 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
-import com.screentime.kids.R
-import com.screentime.kids.adapters.MessageAdapter
-import com.screentime.kids.databinding.FragmentMessagesBinding
-import com.screentime.kids.models.MessageRecord
+import com.screentime.parent.R
+import com.screentime.parent.adapters.MessageAdapter
+import com.screentime.parent.databinding.FragmentMessagesBinding
+import com.screentime.parent.models.MessageRecord
 
 class MessageFragment : Fragment() {
 

@@ -1,4 +1,4 @@
-package com.screentime.kids.fragments
+package com.screentime.parent.fragments
 
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -6,10 +6,10 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
-import com.screentime.kids.R
-import com.screentime.kids.adapters.AppUsageAdapter
-import com.screentime.kids.databinding.FragmentAppUsageBinding
-import com.screentime.kids.models.AppSession
+import com.screentime.parent.R
+import com.screentime.parent.adapters.AppUsageAdapter
+import com.screentime.parent.databinding.FragmentAppUsageBinding
+import com.screentime.parent.models.AppSession
 import com.github.mikephil.charting.components.XAxis
 import com.github.mikephil.charting.data.BarData
 import com.github.mikephil.charting.data.BarDataSet

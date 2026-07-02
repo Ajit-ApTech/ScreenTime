@@ -1,27 +1,26 @@
-package com.screentime.kids
+package com.screentime.parent
 
 import android.content.Intent
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import androidx.appcompat.app.AppCompatActivity
-import com.screentime.kids.helpers.FirebaseHelper
+import com.google.firebase.auth.FirebaseAuth
 
 class SplashActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_parent_splash)
 
-        val firebaseHelper = FirebaseHelper(this)
+        val auth = FirebaseAuth.getInstance()
         val handler = Handler(Looper.getMainLooper())
 
         handler.postDelayed({
-            val intent = if (!firebaseHelper.isSetupDone()) {
-                Intent(this, SetupActivity::class.java)
-            } else if (firebaseHelper.getFamilyId().isNullOrEmpty()) {
-                Intent(this, LinkFamilyActivity::class.java)
+            val intent = if (auth.currentUser != null) {
+                Intent(this, FamilyDashboardActivity::class.java)
             } else {
-                Intent(this, HomeActivity::class.java)
+                Intent(this, LoginActivity::class.java)
             }
             startActivity(intent)
             finish()

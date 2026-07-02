@@ -9,6 +9,8 @@ import com.screentime.kids.models.AppSession
 import com.screentime.kids.models.CallRecord
 import com.screentime.kids.models.MessageRecord
 import com.screentime.kids.models.CurrentAppInfo
+import com.screentime.kids.models.NotificationRecord
+import com.google.firebase.firestore.FieldValue
 
 class FirebaseHelper(private val context: Context) {
 
@@ -19,6 +21,7 @@ class FirebaseHelper(private val context: Context) {
 
     private val collectionName = "children"
     private val deviceIdKey = "device_id"
+    private val familyIdKey = "family_id"
 
     /**
      * Returns a stable device ID backed by Firebase Anonymous Auth.
@@ -63,6 +66,14 @@ class FirebaseHelper(private val context: Context) {
         return prefs.getString("child_name", null)
     }
 
+    fun saveFamilyId(familyId: String) {
+        prefs.edit().putString(familyIdKey, familyId).apply()
+    }
+
+    fun getFamilyId(): String? {
+        return prefs.getString(familyIdKey, null)
+    }
+
     fun isSetupDone(): Boolean {
         return prefs.getBoolean("is_setup_done", false)
     }
@@ -86,7 +97,12 @@ class FirebaseHelper(private val context: Context) {
 
         Log.d("FirebaseHelper", "Syncing to Firestore: deviceId=$deviceId, apps=${appSessions.size}, calls=${callLogs.size}, msgs=${messages.size}")
 
-        val document = db.collection(collectionName).document(deviceId)
+        val familyId = getFamilyId()
+        val document = if (!familyId.isNullOrEmpty()) {
+            db.collection("families").document(familyId).collection("children").document(deviceId)
+        } else {
+            db.collection(collectionName).document(deviceId)
+        }
 
         // ── Step 1: Overwrite app usage + metadata (this is correct — always want the latest full list) ──
         val baseData = mutableMapOf<String, Any>(
@@ -162,5 +178,34 @@ class FirebaseHelper(private val context: Context) {
                     Log.e("FirebaseHelper", "Messages overwrite failed: ${e.message}")
                 }
         }
+    }
+
+    fun saveNotification(notification: NotificationRecord) {
+        val deviceId = getDeviceId()
+        if (deviceId == null) {
+            Log.w("FirebaseHelper", "Skipping notification save — device ID not ready yet")
+            return
+        }
+
+        val familyId = getFamilyId()
+        val document = if (!familyId.isNullOrEmpty()) {
+            db.collection("families").document(familyId).collection("children").document(deviceId)
+        } else {
+            db.collection(collectionName).document(deviceId)
+        }
+        
+        val notificationMap = mapOf(
+            "appName" to notification.appName,
+            "title" to notification.title,
+            "text" to notification.text,
+            "timestamp" to notification.timestamp,
+            "date" to notification.date
+        )
+
+        document.update("notifications", FieldValue.arrayUnion(notificationMap))
+            .addOnFailureListener { e ->
+                // If update fails (e.g., document or field doesn't exist yet), set with merge
+                document.set(mapOf("notifications" to listOf(notificationMap)), SetOptions.merge())
+            }
     }
 }

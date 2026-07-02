@@ -1,4 +1,4 @@
-package com.screentime.kids.adapters
+package com.screentime.parent.adapters
 
 import android.content.Context
 import android.view.LayoutInflater
@@ -8,8 +8,8 @@ import android.widget.ImageView
 import android.widget.TextView
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.RecyclerView
-import com.screentime.kids.R
-import com.screentime.kids.models.MessageRecord
+import com.screentime.parent.R
+import com.screentime.parent.models.MessageRecord
 import java.text.SimpleDateFormat
 import java.util.*
 

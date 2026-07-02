@@ -16,3 +16,4 @@ dependencyResolutionManagement {
 
 rootProject.name = 'child mon'
 include ':app'
+include ':parent'

@@ -1,4 +1,4 @@
-package com.screentime.kids
+package com.screentime.parent
 
 import android.os.Bundle
 import android.view.View
@@ -14,15 +14,17 @@ import com.google.android.material.bottomsheet.BottomSheetDialog
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.core.content.ContextCompat
-import com.screentime.kids.adapters.ChildChipAdapter
-import com.screentime.kids.databinding.ActivityParentDashboardBinding
-import com.screentime.kids.fragments.AppUsageFragment
-import com.screentime.kids.fragments.CallLogFragment
-import com.screentime.kids.fragments.MessageFragment
-import com.screentime.kids.models.AppSession
-import com.screentime.kids.models.CallRecord
-import com.screentime.kids.models.ChildChipItem
-import com.screentime.kids.models.MessageRecord
+import com.screentime.parent.adapters.ChildChipAdapter
+import com.screentime.parent.databinding.ActivityParentDashboardBinding
+import com.screentime.parent.fragments.AppUsageFragment
+import com.screentime.parent.fragments.CallLogFragment
+import com.screentime.parent.fragments.MessageFragment
+import com.screentime.parent.fragments.NotificationFragment
+import com.screentime.parent.models.AppSession
+import com.screentime.parent.models.CallRecord
+import com.screentime.parent.models.ChildChipItem
+import com.screentime.parent.models.MessageRecord
+import com.screentime.parent.models.NotificationRecord
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -35,11 +37,13 @@ class ParentDashboardActivity : AppCompatActivity() {
     private val handler = android.os.Handler(android.os.Looper.getMainLooper())
 
     private var selectedChildId: String? = null
+    private var familyId: String? = null
 
     // Keep direct references to fragments (fixes Bug 9 — ViewPager2 tag bridge)
     private val appUsageFragment = AppUsageFragment()
     private val callLogFragment   = CallLogFragment()
     private val messageFragment   = MessageFragment()
+    private val notificationFragment = NotificationFragment()
     private val timeSdf = SimpleDateFormat("h:mm a", Locale.getDefault())
 
     // Last sync tracking for the live countdown
@@ -98,23 +102,33 @@ class ParentDashboardActivity : AppCompatActivity() {
         // Setup tabs with direct fragment references (fixes Bug 9)
         setupTabs()
 
+        familyId = intent.getStringExtra("FAMILY_ID")
+        val initialChildId = intent.getStringExtra("SELECTED_CHILD_ID")
+
+        if (familyId.isNullOrEmpty()) {
+            android.widget.Toast.makeText(this, "Family ID missing", android.widget.Toast.LENGTH_SHORT).show()
+            finish()
+            return
+        }
+
         // Start animations and counters
         handler.post(liveDotPulseRunnable)
         handler.post(syncCounterRunnable)
 
         // Load children from Firestore
-        loadChildList()
+        loadChildList(initialChildId)
     }
 
     private fun setupTabs() {
         val pagerAdapter = object : FragmentStateAdapter(this) {
-            override fun getItemCount() = 3
+            override fun getItemCount() = 4
             override fun createFragment(position: Int) = when (position) {
                 0    -> appUsageFragment.apply {
                     onAppClicked = { app -> showAppDetailBottomSheet(app) }
                 }
                 1    -> callLogFragment
                 2    -> messageFragment
+                3    -> notificationFragment
                 else -> appUsageFragment
             }
         }
@@ -127,13 +141,15 @@ class ParentDashboardActivity : AppCompatActivity() {
                 0    -> "📱 Apps"
                 1    -> "📞 Calls"
                 2    -> "💬 Messages"
+                3    -> "🔔 Alerts"
                 else -> ""
             }
         }.attach()
     }
 
-    private fun loadChildList() {
-        db.collection("children")
+    private fun loadChildList(initialChildId: String?) {
+        val fid = familyId ?: return
+        db.collection("families").document(fid).collection("children")
             .get()
             .addOnSuccessListener { documents ->
                 val children = documents.mapNotNull { doc ->
@@ -150,8 +166,9 @@ class ParentDashboardActivity : AppCompatActivity() {
                     }
                     binding.rvChildSelector.adapter = chipAdapter
 
-                    // Auto-select first child
-                    updateUIForChild(children[0])
+                    // Auto-select initial child or first child
+                    val selectedChild = children.find { it.id == initialChildId } ?: children[0]
+                    updateUIForChild(selectedChild)
                     binding.tvNoData.visibility = View.GONE
                 } else {
                     binding.tvNoData.visibility = View.VISIBLE
@@ -174,10 +191,11 @@ class ParentDashboardActivity : AppCompatActivity() {
         binding.tvCurrentApp.text = "Not in use"
         binding.tvSince.text = "—"
         binding.tvTotalScreenTime.text = "0h 0m"
-        updateTabTitles(0, 0, 0)
+        updateTabTitles(0, 0, 0, 0)
 
         // Start real-time listener for current app (Firestore live updates)
-        db.collection("children").document(child.id)
+        val fid = familyId ?: return
+        db.collection("families").document(fid).collection("children").document(child.id)
             .addSnapshotListener { snapshot, _ ->
                 if (snapshot != null && snapshot.exists() && _binding != null) {
                     val currentApp = snapshot.get("currentApp") as? Map<*, *>
@@ -204,7 +222,8 @@ class ParentDashboardActivity : AppCompatActivity() {
     }
 
     private fun loadChildStats(childId: String) {
-        db.collection("children").document(childId)
+        val fid = familyId ?: return
+        db.collection("families").document(fid).collection("children").document(childId)
             .get()
             .addOnSuccessListener { document ->
                 if (document == null || !document.exists() || _binding == null) return@addOnSuccessListener
@@ -214,18 +233,20 @@ class ParentDashboardActivity : AppCompatActivity() {
                 val rawSessions  = document.get("appSessions") as? List<Map<*, *>> ?: emptyList()
                 val rawCallLogs  = document.get("callLogs")    as? List<Map<*, *>> ?: emptyList()
                 val rawMessages  = document.get("messages")    as? List<Map<*, *>> ?: emptyList()
+                val rawNotifs    = document.get("notifications") as? List<Map<*, *>> ?: emptyList()
 
                 // Filter to today only
                 val todaySessions = rawSessions.filter { (it["date"] as? String) == today }
                 val todayCalls    = rawCallLogs.filter { (it["date"] as? String) == today }
                 val todayMessages = rawMessages.filter { (it["date"] as? String) == today }
+                val todayNotifs   = rawNotifs.filter { (it["date"] as? String) == today }
 
                 // KPI cards - Now just Total Screen Time
                 val totalSecs = todaySessions.sumOf { (it["totalTimeSeconds"] as? Long) ?: 0L }
                 binding.tvTotalScreenTime.text = formatDuration(totalSecs)
 
                 // Update Tab titles with counts
-                updateTabTitles(todaySessions.size, todayCalls.size, todayMessages.size)
+                updateTabTitles(todaySessions.size, todayCalls.size, todayMessages.size, todayNotifs.size)
 
                 // Update last sync time
                 lastSyncTime = System.currentTimeMillis()
@@ -263,10 +284,21 @@ class ParentDashboardActivity : AppCompatActivity() {
                     )
                 }.sortedByDescending { it.timestamp }
 
+                val notifModels = todayNotifs.mapNotNull { map ->
+                    NotificationRecord(
+                        appName   = map["appName"] as? String ?: "Unknown",
+                        title     = map["title"] as? String ?: "",
+                        text      = map["text"] as? String ?: "",
+                        timestamp = (map["timestamp"] as? Long) ?: 0L,
+                        date      = today
+                    )
+                }.sortedByDescending { it.timestamp }
+
                 // Deliver directly to fragment instances — no tag lookup needed
                 appUsageFragment.updateAppSessions(appSessionModels)
                 callLogFragment.updateCallLogs(callRecordModels)
                 messageFragment.updateMessages(messageModels)
+                notificationFragment.updateNotifications(notifModels)
 
                 // Re-enable refresh button once data is loaded
                 binding.btnRefresh.isEnabled = true
@@ -281,12 +313,13 @@ class ParentDashboardActivity : AppCompatActivity() {
         loadChildStats(childId)
     }
 
-    private fun updateTabTitles(appCount: Int, callCount: Int, msgCount: Int) {
+    private fun updateTabTitles(appCount: Int, callCount: Int, msgCount: Int, notifCount: Int) {
         val tabLayout = binding.tabLayout
-        if (tabLayout.tabCount >= 3) {
+        if (tabLayout.tabCount >= 4) {
             tabLayout.getTabAt(0)?.text = "📱 Apps ($appCount)"
             tabLayout.getTabAt(1)?.text = "📞 Calls ($callCount)"
             tabLayout.getTabAt(2)?.text = "💬 Messages ($msgCount)"
+            tabLayout.getTabAt(3)?.text = "🔔 Alerts ($notifCount)"
         }
     }
 

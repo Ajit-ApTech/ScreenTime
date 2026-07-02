@@ -11,6 +11,7 @@ import androidx.core.content.ContextCompat
 import com.google.android.material.snackbar.Snackbar
 import com.screentime.kids.databinding.ActivitySetupBinding
 import com.screentime.kids.helpers.FirebaseHelper
+import android.content.ComponentName
 
 class SetupActivity : AppCompatActivity() {
 
@@ -28,6 +29,7 @@ class SetupActivity : AppCompatActivity() {
     private var isCallLogGranted = false
     private var isContactsGranted = false
     private var isSmsGranted = false
+    private var isNotificationGranted = false
 
     private val permissions = arrayOf(
         permissionCallLog,
@@ -61,6 +63,10 @@ class SetupActivity : AppCompatActivity() {
             requestPermission(permissionSms, REQUEST_SMS)
         }
 
+        binding.btnNotificationAccess.setOnClickListener {
+            openNotificationSettings()
+        }
+
         binding.etName.addTextChangedListener(object : android.text.TextWatcher {
             override fun afterTextChanged(s: android.text.Editable?) {}
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
@@ -76,6 +82,11 @@ class SetupActivity : AppCompatActivity() {
 
     private fun openAppUsageSettings() {
         val intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)
+        startActivity(intent)
+    }
+
+    private fun openNotificationSettings() {
+        val intent = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
         startActivity(intent)
     }
 
@@ -104,6 +115,14 @@ class SetupActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         checkAppUsagePermission()
+        checkNotificationPermission()
+    }
+
+    private fun checkNotificationPermission() {
+        val cn = ComponentName(this, com.screentime.kids.services.AppNotificationListener::class.java)
+        val flat = Settings.Secure.getString(contentResolver, "enabled_notification_listeners")
+        isNotificationGranted = flat != null && flat.contains(cn.flattenToString())
+        updatePermissionButtons()
     }
 
     private fun checkAppUsagePermission() {
@@ -152,11 +171,17 @@ class SetupActivity : AppCompatActivity() {
         isCallLogGranted = ContextCompat.checkSelfPermission(this, permissionCallLog) == PackageManager.PERMISSION_GRANTED
         isContactsGranted = ContextCompat.checkSelfPermission(this, permissionContacts) == PackageManager.PERMISSION_GRANTED
         isSmsGranted = ContextCompat.checkSelfPermission(this, permissionSms) == PackageManager.PERMISSION_GRANTED
+        // Notification permission is checked in checkNotificationPermission()
 
         if (isAppUsageGranted) binding.btnAppUsage.text = "Allow App Usage Access ✅"
         if (isCallLogGranted) binding.btnCallLog.text = "Allow Call Log Access ✅"
         if (isContactsGranted) binding.btnContacts.text = "Allow Contacts Access ✅"
         if (isSmsGranted) binding.btnSms.text = "Allow SMS Access ✅"
+        if (isNotificationGranted) {
+            binding.btnNotificationAccess.text = "Notification Access Granted ✅"
+        } else {
+            binding.btnNotificationAccess.text = "Allow Notification Access (Optional)"
+        }
     }
 
     private fun checkAllConditions() {
@@ -170,7 +195,7 @@ class SetupActivity : AppCompatActivity() {
         firebaseHelper.saveChildName(name)
         firebaseHelper.markSetupDone()
 
-        val intent = Intent(this, HomeActivity::class.java)
+        val intent = Intent(this, LinkFamilyActivity::class.java)
         startActivity(intent)
         finish()
     }

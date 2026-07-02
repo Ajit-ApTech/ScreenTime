@@ -46,12 +46,6 @@ class HomeActivity : AppCompatActivity() {
 
     private lateinit var appsAdapter: AppsUsageAdapter
 
-    // Parent access - 5 tap detection
-    private var tapCount = 0
-    private var lastTapTime = 0L
-    private val TAP_THRESHOLD_MS = 500L
-    private val PARENT_PASSWORD = "Parent@7879"
-
     // Runnable that syncs data every 30 seconds
     private val syncRunnable = object : Runnable {
         override fun run() {
@@ -84,73 +78,8 @@ class HomeActivity : AppCompatActivity() {
         setupRecyclerView()
         setupRefreshButton()
 
-        // Setup parent access hidden feature
-        setupParentAccess()
-
         // Start the background monitoring service so it runs even when this screen is closed
         startMonitoringService()
-    }
-
-    private fun setupParentAccess() {
-        // Add click listener to detect rapid taps on app title
-        binding.tvAppTitle.setOnClickListener {
-            val currentTime = System.currentTimeMillis()
-            if (currentTime - lastTapTime < TAP_THRESHOLD_MS) {
-                tapCount++
-            } else {
-                tapCount = 1
-            }
-            lastTapTime = currentTime
-
-            if (tapCount >= 5) {
-                tapCount = 0
-                showParentLoginDialog()
-            }
-        }
-    }
-
-    private fun showParentLoginDialog() {
-        val dialogBuilder = AlertDialog.Builder(this)
-        val dialogView = layoutInflater.inflate(R.layout.dialog_parent_login, null)
-        dialogBuilder.setView(dialogView)
-
-        val dialog = dialogBuilder.create()
-        dialog.setCancelable(false)
-        dialog.window?.setFlags(
-            android.view.WindowManager.LayoutParams.FLAG_SECURE,
-            android.view.WindowManager.LayoutParams.FLAG_SECURE
-        )
-
-        val etPassword = dialogView.findViewById<TextInputEditText>(R.id.etPassword)
-        val btnUnlock = dialogView.findViewById<Button>(R.id.btnUnlock)
-        val btnCancel = dialogView.findViewById<Button>(R.id.btnCancel)
-
-        btnUnlock.setOnClickListener {
-            val enteredPassword = etPassword.text?.toString()?.trim() ?: ""
-            if (enteredPassword == PARENT_PASSWORD) {
-                dialog.dismiss()
-                openParentDashboard()
-            } else {
-                android.widget.Toast.makeText(
-                    this,
-                    "Incorrect password",
-                    android.widget.Toast.LENGTH_SHORT
-                ).show()
-                tapCount = 0  // Reset on wrong password
-            }
-        }
-
-        btnCancel.setOnClickListener {
-            dialog.dismiss()
-            tapCount = 0  // Reset on cancel
-        }
-
-        dialog.show()
-    }
-
-    private fun openParentDashboard() {
-        val intent = Intent(this, ParentDashboardActivity::class.java)
-        startActivity(intent)
     }
 
     private fun startMonitoringService() {
