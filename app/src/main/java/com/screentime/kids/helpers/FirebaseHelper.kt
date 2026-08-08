@@ -115,7 +115,14 @@ class FirebaseHelper(private val context: Context) {
                     "packageName" to session.packageName,
                     "totalTimeSeconds" to session.totalTimeSeconds,
                     "lastUsedTimestamp" to session.lastUsedTimestamp,
-                    "date" to session.date
+                    "date" to session.date,
+                    "sessions" to session.sessions.map { entry ->
+                        mapOf(
+                            "startTime" to entry.startTime,
+                            "endTime" to entry.endTime,
+                            "durationSeconds" to entry.durationSeconds
+                        )
+                    }
                 )
             }
         )

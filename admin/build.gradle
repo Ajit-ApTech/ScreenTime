@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace 'com.screentime.kids'
+    namespace 'com.screentime.admin'
     compileSdk 34
 
     defaultConfig {
-        applicationId "com.screentime.kids"
+        applicationId "com.screentime.admin"
         minSdk 26
         targetSdk 34
         versionCode 1
@@ -31,7 +31,6 @@ android {
 
     buildTypes {
         debug {
-            // Sign debug builds with release key too — avoids Samsung/Play Protect warnings
             signingConfig signingConfigs.release
         }
         release {
@@ -58,20 +57,11 @@ dependencies {
     implementation 'com.google.firebase:firebase-firestore'
     implementation 'com.google.firebase:firebase-auth'
 
-    // Coroutines
-    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3'
-
-    // Lifecycle
-    implementation 'androidx.lifecycle:lifecycle-service:2.7.0'
-    implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.7.0'
-
     // UI
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'androidx.recyclerview:recyclerview:1.3.2'
     implementation 'androidx.cardview:cardview:1.0.0'
     implementation 'com.google.android.material:material:1.12.0'
-
-    // MPAndroidChart for bar charts
     implementation 'com.github.PhilJay:MPAndroidChart:v3.1.0'
 
     // Core Kotlin

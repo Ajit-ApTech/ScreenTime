@@ -8,6 +8,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Process
 import com.screentime.kids.models.AppSession
+import com.screentime.kids.models.AppSessionEntry
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -51,11 +52,14 @@ class AppUsageHelper(private val context: Context) {
 
         val events = usageStatsManager.queryEvents(todayStart, now)
 
-        val usageMap = mutableMapOf<String, Long>() // PackageName -> Total foreground time in ms
-        val lastUsedMap = mutableMapOf<String, Long>() // PackageName -> Last time used
-        val nameMap = mutableMapOf<String, String>() // PackageName -> App Name
-        val startTimes = mutableMapOf<String, Long>() // PackageName -> Start time of current session
-        val hasSeenEvent = mutableSetOf<String>() // To handle sessions that started before midnight
+        // Track accumulated totals
+        val usageMap = mutableMapOf<String, Long>()           // packageName -> total ms
+        val lastUsedMap = mutableMapOf<String, Long>()         // packageName -> last used epoch ms
+        val nameMap = mutableMapOf<String, String>()           // packageName -> displayName
+        val startTimes = mutableMapOf<String, Long>()          // packageName -> current session start
+        val hasSeenEvent = mutableSetOf<String>()              // for midnight-crossing sessions
+        // Track individual sessions
+        val sessionEntriesMap = mutableMapOf<String, MutableList<AppSessionEntry>>() // packageName -> sessions list
 
         var eventCount = 0
         val event = UsageEvents.Event()
@@ -66,9 +70,7 @@ class AppUsageHelper(private val context: Context) {
 
             if (packageName == context.packageName || isExcluded(packageName)) continue
 
-            // --- DEBUG ---
             android.util.Log.d("AppUsageHelper", "EVENT #$eventCount: pkg=$packageName type=${event.eventType} time=${event.timeStamp}")
-            // -------------
 
             val isFirstEventForPackage = hasSeenEvent.add(packageName)
 
@@ -79,22 +81,29 @@ class AppUsageHelper(private val context: Context) {
                 }
                 UsageEvents.Event.ACTIVITY_PAUSED -> {
                     val startTime = startTimes.remove(packageName)
-                    
-                    // If we see a PAUSE as the very first event for this package, 
-                    // it means the session started before midnight.
+
                     val activeStart = if (startTime != null) {
                         startTime
                     } else if (isFirstEventForPackage) {
+                        // Session started before midnight — use midnight as the start
                         todayStart
                     } else {
                         android.util.Log.d("AppUsageHelper", "IGNORING PAUSE for $packageName (duplicate/no start)")
-                        continue // Duplicate PAUSE event, ignore
+                        continue
                     }
 
                     val duration = event.timeStamp - activeStart
-                    android.util.Log.d("AppUsageHelper", "PAUSE for $packageName: duration=$duration")
-                    if (duration in 1..86_400_000L) { // Sanity check: > 0 and <= 24 hours
+                    android.util.Log.d("AppUsageHelper", "PAUSE for $packageName: duration=${duration}ms")
+                    if (duration in 1..86_400_000L) {
                         usageMap[packageName] = (usageMap[packageName] ?: 0L) + duration
+                        // Record this as an individual session entry
+                        sessionEntriesMap.getOrPut(packageName) { mutableListOf() }.add(
+                            AppSessionEntry(
+                                startTime = activeStart,
+                                endTime = event.timeStamp,
+                                durationSeconds = duration / 1000
+                            )
+                        )
                     } else {
                         android.util.Log.d("AppUsageHelper", "INVALID DURATION for $packageName: duration=$duration")
                     }
@@ -102,12 +111,21 @@ class AppUsageHelper(private val context: Context) {
             }
         }
 
-        // Add currently running apps
+        // Add still-running apps as open sessions
+        val sessionEndTime = now
         for ((packageName, startTime) in startTimes) {
-            val duration = now - startTime
+            val duration = sessionEndTime - startTime
             if (duration > 0) {
                 usageMap[packageName] = (usageMap[packageName] ?: 0L) + duration
-                lastUsedMap[packageName] = now
+                lastUsedMap[packageName] = sessionEndTime
+                // Record as an in-progress session (endTime = now)
+                sessionEntriesMap.getOrPut(packageName) { mutableListOf() }.add(
+                    AppSessionEntry(
+                        startTime = startTime,
+                        endTime = sessionEndTime,
+                        durationSeconds = duration / 1000
+                    )
+                )
             }
         }
 
@@ -132,15 +150,14 @@ class AppUsageHelper(private val context: Context) {
                 packageName = packageName,
                 totalTimeSeconds = totalTimeMs / 1000,
                 date = todayDate,
-                lastUsedTimestamp = lastUsedMap[packageName] ?: 0L
+                lastUsedTimestamp = lastUsedMap[packageName] ?: 0L,
+                sessions = sessionEntriesMap[packageName]?.sortedBy { it.startTime } ?: emptyList()
             )
         }
 
-        android.util.Log.d("AppUsageHelper", "Returning ${appSessions.size} app sessions (queryEvents)")
+        android.util.Log.d("AppUsageHelper", "Returning ${appSessions.size} app sessions with individual entries")
 
-        // Sort by most recently used first
         val sortedSessions = appSessions.sortedByDescending { it.lastUsedTimestamp }
-
         if (sortedSessions.isNotEmpty()) {
             return sortedSessions
         }
@@ -174,13 +191,15 @@ class AppUsageHelper(private val context: Context) {
             }
         }
 
+        // Fallback: no individual sessions available (UsageStats API doesn't expose event-level data)
         return fallbackUsageMap.map { (packageName, usage) ->
             AppSession(
                 appName = nameMap[packageName] ?: packageName,
                 packageName = packageName,
                 totalTimeSeconds = usage.first / 1000,
                 date = todayDate,
-                lastUsedTimestamp = usage.second
+                lastUsedTimestamp = usage.second,
+                sessions = emptyList() // Not available via fallback API
             )
         }.sortedByDescending { it.lastUsedTimestamp }
     }

@@ -1,16 +1,20 @@
 package com.screentime.parent
 
+import android.content.Intent
 import android.os.Bundle
 import android.view.View
 import android.view.animation.AnimationUtils
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import androidx.viewpager2.adapter.FragmentStateAdapter
 import androidx.viewpager2.widget.ViewPager2
 import com.google.android.material.tabs.TabLayout
 import com.google.android.material.tabs.TabLayoutMediator
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.android.material.bottomsheet.BottomSheetDialog
+import android.view.LayoutInflater
+import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.core.content.ContextCompat
@@ -21,6 +25,7 @@ import com.screentime.parent.fragments.CallLogFragment
 import com.screentime.parent.fragments.MessageFragment
 import com.screentime.parent.fragments.NotificationFragment
 import com.screentime.parent.models.AppSession
+import com.screentime.parent.models.AppSessionEntry
 import com.screentime.parent.models.CallRecord
 import com.screentime.parent.models.ChildChipItem
 import com.screentime.parent.models.MessageRecord
@@ -38,6 +43,7 @@ class ParentDashboardActivity : AppCompatActivity() {
 
     private var selectedChildId: String? = null
     private var familyId: String? = null
+    private var allAppSessionsForChild: List<AppSession> = emptyList() // full history for session bottom sheet
 
     // Keep direct references to fragments (fixes Bug 9 — ViewPager2 tag bridge)
     private val appUsageFragment = AppUsageFragment()
@@ -230,37 +236,46 @@ class ParentDashboardActivity : AppCompatActivity() {
 
                 val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
 
-                val rawSessions  = document.get("appSessions") as? List<Map<*, *>> ?: emptyList()
-                val rawCallLogs  = document.get("callLogs")    as? List<Map<*, *>> ?: emptyList()
-                val rawMessages  = document.get("messages")    as? List<Map<*, *>> ?: emptyList()
-                val rawNotifs    = document.get("notifications") as? List<Map<*, *>> ?: emptyList()
+                @Suppress("UNCHECKED_CAST")
+                val rawSessions  = document.get("appSessions")   as? List<Map<*, *>> ?: emptyList()
+                val rawCallLogs  = document.get("callLogs")      as? List<Map<*, *>> ?: emptyList()
+                val rawMessages  = document.get("messages")      as? List<Map<*, *>> ?: emptyList()
+                val rawNotifs    = document.get("notifications")  as? List<Map<*, *>> ?: emptyList()
 
-                // Filter to today only
-                val todaySessions = rawSessions.filter { (it["date"] as? String) == today }
+                // Filter calls/messages/notifs to today only
                 val todayCalls    = rawCallLogs.filter { (it["date"] as? String) == today }
                 val todayMessages = rawMessages.filter { (it["date"] as? String) == today }
                 val todayNotifs   = rawNotifs.filter { (it["date"] as? String) == today }
 
-                // KPI cards - Now just Total Screen Time
-                val totalSecs = todaySessions.sumOf { (it["totalTimeSeconds"] as? Long) ?: 0L }
+                // Parse ALL app sessions across ALL dates — the chart will show full history
+                val allAppSessions = rawSessions.mapNotNull { map ->
+                    @Suppress("UNCHECKED_CAST")
+                    val rawEntries = map["sessions"] as? List<Map<*, *>> ?: emptyList()
+                    val sessionEntries = rawEntries.map { e ->
+                        AppSessionEntry(
+                            startTime = (e["startTime"] as? Long) ?: 0L,
+                            endTime = (e["endTime"] as? Long) ?: 0L,
+                            durationSeconds = (e["durationSeconds"] as? Long) ?: 0L
+                        )
+                    }.sortedBy { it.startTime }
+
+                    AppSession(
+                        appName           = map["appName"] as? String ?: return@mapNotNull null,
+                        packageName       = map["packageName"] as? String ?: "",
+                        totalTimeSeconds  = (map["totalTimeSeconds"] as? Long) ?: 0L,
+                        date              = map["date"] as? String ?: today,
+                        lastUsedTimestamp = (map["lastUsedTimestamp"] as? Long) ?: 0L,
+                        sessions          = sessionEntries
+                    )
+                }
+
+                // KPI — today's total screen time
+                val todaySessions = allAppSessions.filter { it.date == today }
+                val totalSecs = todaySessions.sumOf { it.totalTimeSeconds }
                 binding.tvTotalScreenTime.text = formatDuration(totalSecs)
 
-                // Update Tab titles with counts
                 updateTabTitles(todaySessions.size, todayCalls.size, todayMessages.size, todayNotifs.size)
-
-                // Update last sync time
                 lastSyncTime = System.currentTimeMillis()
-
-                // Push data into fragments directly (fixes Bug 9 — no findFragmentByTag)
-                val appSessionModels = todaySessions.mapNotNull { map ->
-                    AppSession(
-                        appName          = map["appName"] as? String ?: return@mapNotNull null,
-                        packageName      = map["packageName"] as? String ?: "",
-                        totalTimeSeconds = (map["totalTimeSeconds"] as? Long) ?: 0L,
-                        date             = today,
-                        lastUsedTimestamp = (map["lastUsedTimestamp"] as? Long) ?: 0L
-                    )
-                }.sortedByDescending { it.lastUsedTimestamp }
 
                 val callRecordModels = todayCalls.mapNotNull { map ->
                     CallRecord(
@@ -294,13 +309,13 @@ class ParentDashboardActivity : AppCompatActivity() {
                     )
                 }.sortedByDescending { it.timestamp }
 
-                // Deliver directly to fragment instances — no tag lookup needed
-                appUsageFragment.updateAppSessions(appSessionModels)
+                // Pass ALL sessions to fragment (chart uses full history, list shows today)
+                allAppSessionsForChild = allAppSessions
+                appUsageFragment.updateAppSessions(allAppSessions)
                 callLogFragment.updateCallLogs(callRecordModels)
                 messageFragment.updateMessages(messageModels)
                 notificationFragment.updateNotifications(notifModels)
 
-                // Re-enable refresh button once data is loaded
                 binding.btnRefresh.isEnabled = true
             }
     }
@@ -338,7 +353,7 @@ class ParentDashboardActivity : AppCompatActivity() {
         val view = layoutInflater.inflate(R.layout.bottom_sheet_app_detail, null)
         dialog.setContentView(view)
 
-        // App icon with safe fallback for when parent doesn't have the child's app installed
+        // App icon with safe fallback
         val ivIcon = view.findViewById<ImageView>(R.id.bsIvAppIcon)
         try {
             ivIcon.setImageDrawable(packageManager.getApplicationIcon(app.packageName))
@@ -349,9 +364,13 @@ class ParentDashboardActivity : AppCompatActivity() {
         view.findViewById<TextView>(R.id.bsTvAppName).text = app.appName
         view.findViewById<TextView>(R.id.bsTvPackageName).text = app.packageName
 
-        // Total time
-        val totalTimeText = formatDuration(app.totalTimeSeconds)
-        view.findViewById<TextView>(R.id.bsTvTotalTime).text = totalTimeText
+        // Gather ALL sessions for this app across all dates
+        val allDatesForApp = allAppSessionsForChild
+            .filter { it.packageName == app.packageName }
+            .sortedByDescending { it.date }
+
+        val allTimeSecs = allDatesForApp.sumOf { it.totalTimeSeconds }
+        view.findViewById<TextView>(R.id.bsTvTotalTime).text = formatDuration(allTimeSecs)
 
         // Last used (exact time)
         val lastUsedText = if (app.lastUsedTimestamp > 0) {
@@ -359,35 +378,33 @@ class ParentDashboardActivity : AppCompatActivity() {
         } else "--"
         view.findViewById<TextView>(R.id.bsTvLastUsed).text = lastUsedText
 
-        // First opened: estimate = lastUsedTimestamp - totalTimeSeconds
-        val firstOpenedText = if (app.lastUsedTimestamp > 0 && app.totalTimeSeconds > 0) {
-            val estimatedStart = app.lastUsedTimestamp - (app.totalTimeSeconds * 1000)
-            
-            val cal = Calendar.getInstance()
-            cal.set(Calendar.HOUR_OF_DAY, 0)
-            cal.set(Calendar.MINUTE, 0)
-            cal.set(Calendar.SECOND, 0)
-            cal.set(Calendar.MILLISECOND, 0)
-            val startOfDay = cal.timeInMillis
+        // Real session count across all dates
+        val totalRealSessions = allDatesForApp.sumOf { it.sessions.size }
+        val sessionCountText = if (totalRealSessions > 0) {
+            "$totalRealSessions session${if (totalRealSessions != 1) "s" else ""} (all time)"
+        } else {
+            val estimated = if (app.totalTimeSeconds > 0) maxOf(1, (app.totalTimeSeconds / 300).toInt()) else 0
+            "~$estimated session${if (estimated != 1) "s" else ""} (est.)"
+        }
+        view.findViewById<TextView>(R.id.bsTvSessionCount).text = sessionCountText
 
-            if (estimatedStart >= startOfDay) {
-                timeSdf.format(Date(estimatedStart))
-            } else {
-                timeSdf.format(Date(startOfDay))
-            }
+        // First opened: either first real session start or estimate
+        val firstRealEntry = allDatesForApp.lastOrNull()?.sessions?.firstOrNull()
+        val firstOpenedText = if (firstRealEntry != null && firstRealEntry.startTime > 0) {
+            timeSdf.format(Date(firstRealEntry.startTime)) + " · ${allDatesForApp.lastOrNull()?.date ?: ""}" 
+        } else if (app.lastUsedTimestamp > 0 && app.totalTimeSeconds > 0) {
+            val est = app.lastUsedTimestamp - (app.totalTimeSeconds * 1000)
+            val startOfDay = Calendar.getInstance().apply {
+                set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+            }.timeInMillis
+            timeSdf.format(Date(maxOf(est, startOfDay))) + " (est.)"
         } else "--"
         view.findViewById<TextView>(R.id.bsTvFirstOpened).text = firstOpenedText
 
-        // Estimated session count (rough estimate: avg 5 min per session)
-        val estimatedSessions = if (app.totalTimeSeconds > 0) {
-            maxOf(1, (app.totalTimeSeconds / 300).toInt())
-        } else 0
-        val sessionText = "$estimatedSessions time${if (estimatedSessions != 1) "s" else ""}"
-        view.findViewById<TextView>(R.id.bsTvSessionCount).text = sessionText
-
-        // Time pill in the bottom stat box
+        // Status pill
         val timePill = view.findViewById<TextView>(R.id.bsTvTimePill)
-        val hours = app.totalTimeSeconds / 3600
+        val hours = allTimeSecs / 3600
         when {
             hours < 1 -> {
                 timePill.text = "Light use"
@@ -406,7 +423,111 @@ class ParentDashboardActivity : AppCompatActivity() {
             }
         }
 
+        // Session history RecyclerView (real sessions grouped by date)
+        val rvSessions = view.findViewById<RecyclerView>(R.id.bsRvSessions)
+        val tvNoSessions = view.findViewById<TextView>(R.id.bsTvNoSessions)
+
+        if (rvSessions != null) {
+            val flatItems = buildSessionList(allDatesForApp)
+            if (flatItems.isEmpty()) {
+                rvSessions.visibility = View.GONE
+                tvNoSessions?.visibility = View.VISIBLE
+            } else {
+                rvSessions.visibility = View.VISIBLE
+                tvNoSessions?.visibility = View.GONE
+                rvSessions.layoutManager = LinearLayoutManager(this)
+                rvSessions.adapter = SessionHistoryAdapter(flatItems)
+            }
+        }
+
         dialog.show()
+    }
+
+    private fun buildSessionList(dateEntries: List<AppSession>): List<SessionItem> {
+        val list = mutableListOf<SessionItem>()
+        for (session in dateEntries) {
+            val dateLabel = try {
+                val parsed = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).parse(session.date)
+                SimpleDateFormat("EEEE, MMM d", Locale.getDefault()).format(parsed ?: Date())
+            } catch (e: Exception) { session.date }
+            val h = session.totalTimeSeconds / 3600
+            val m = (session.totalTimeSeconds % 3600) / 60
+            val dur = if (h > 0) "${h}h ${m}m" else "${m}m"
+            list.add(SessionItem.DateHeader("📅  $dateLabel  •  $dur total"))
+            if (session.sessions.isNotEmpty()) {
+                for (entry in session.sessions.sortedBy { it.startTime }) {
+                    list.add(SessionItem.Entry(entry))
+                }
+            } else {
+                val lastStr = if (session.lastUsedTimestamp > 0) timeSdf.format(Date(session.lastUsedTimestamp)) else "Unknown"
+                list.add(SessionItem.Legacy(session.totalTimeSeconds, lastStr))
+            }
+        }
+        return list
+    }
+
+    sealed class SessionItem {
+        data class DateHeader(val label: String) : SessionItem()
+        data class Entry(val entry: AppSessionEntry) : SessionItem()
+        data class Legacy(val totalSecs: Long, val lastUsedStr: String) : SessionItem()
+    }
+
+    inner class SessionHistoryAdapter(private val items: List<SessionItem>) :
+        RecyclerView.Adapter<RecyclerView.ViewHolder>() {
+
+        inner class HeaderVH(val tv: TextView) : RecyclerView.ViewHolder(tv)
+        inner class EntryVH(view: View) : RecyclerView.ViewHolder(view) {
+            val dot: View = view.findViewById(R.id.bsSessionDot)
+            val tvRange: TextView = view.findViewById(R.id.bsTvSessionRange)
+            val tvDur: TextView = view.findViewById(R.id.bsTvSessionDur)
+        }
+
+        override fun getItemViewType(pos: Int) = when (items[pos]) {
+            is SessionItem.DateHeader -> 0
+            else -> 1
+        }
+
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
+            return if (viewType == 0) {
+                val tv = TextView(parent.context).apply {
+                    setPadding(0, 28, 0, 8)
+                    textSize = 12f
+                    setTextColor(ContextCompat.getColor(parent.context, R.color.text_secondary))
+                    setTypeface(null, android.graphics.Typeface.BOLD)
+                    layoutParams = ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+                    )
+                }
+                HeaderVH(tv)
+            } else {
+                val v = LayoutInflater.from(parent.context)
+                    .inflate(R.layout.item_session_entry_parent, parent, false)
+                EntryVH(v)
+            }
+        }
+
+        override fun onBindViewHolder(holder: RecyclerView.ViewHolder, pos: Int) {
+            val timeFmt = SimpleDateFormat("hh:mm a", Locale.getDefault())
+            when (val item = items[pos]) {
+                is SessionItem.DateHeader -> (holder as HeaderVH).tv.text = item.label
+                is SessionItem.Entry -> {
+                    (holder as EntryVH).apply {
+                        tvRange.text = "${timeFmt.format(Date(item.entry.startTime))} – ${timeFmt.format(Date(item.entry.endTime))}"
+                        val s = item.entry.durationSeconds
+                        tvDur.text = if (s >= 3600) "${s/3600}h ${(s%3600)/60}m" else if (s >= 60) "${s/60}m" else "${s}s"
+                    }
+                }
+                is SessionItem.Legacy -> {
+                    (holder as EntryVH).apply {
+                        tvRange.text = "Last used at ${item.lastUsedStr}  (legacy data)"
+                        val s = item.totalSecs
+                        tvDur.text = if (s >= 3600) "${s/3600}h ${(s%3600)/60}m" else if (s >= 60) "${s/60}m" else "${s}s"
+                    }
+                }
+            }
+        }
+
+        override fun getItemCount() = items.size
     }
 
     override fun onDestroy() {

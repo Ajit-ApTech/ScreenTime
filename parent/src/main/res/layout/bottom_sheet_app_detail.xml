@@ -212,6 +212,26 @@
                 android:background="@drawable/bg_pill_green" />
         </LinearLayout>
 
+        <!-- Session History List -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/bsRvSessions"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:visibility="gone"
+            android:nestedScrollingEnabled="false" />
+
+        <TextView
+            android:id="@+id/bsTvNoSessions"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:text="No session history available"
+            android:textColor="@color/text_secondary"
+            android:textSize="14sp"
+            android:gravity="center"
+            android:visibility="gone" />
+
     </LinearLayout>
 
 </LinearLayout>

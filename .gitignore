@@ -59,5 +59,10 @@ captures/
 # Kotlin
 .kotlin/
 
+# Keystores / Signing keys
+*.jks
+*.keystore
+
 # Windows
 Thumbs.db
+
