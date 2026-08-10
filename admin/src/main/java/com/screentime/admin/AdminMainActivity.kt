@@ -87,6 +87,18 @@ class AdminMainActivity : AppCompatActivity() {
                         }
                     }
                 }
+            },
+            onToggleChildTracking = { child, isEnabled ->
+                firebaseHelper.updateChildTrackingState(child.familyId, child.id, isEnabled) { success, err ->
+                    if (success) {
+                        val statusText = if (isEnabled) "Data sync enabled" else "Data sync paused"
+                        Toast.makeText(this, "$statusText for ${child.name}", Toast.LENGTH_SHORT).show()
+                        loadData()
+                    } else {
+                        Toast.makeText(this, "Failed to update tracking: $err", Toast.LENGTH_LONG).show()
+                        loadData()
+                    }
+                }
             }
         )
         binding.rvFamilies.layoutManager = LinearLayoutManager(this)
@@ -97,10 +109,52 @@ class AdminMainActivity : AppCompatActivity() {
         binding.btnRefresh.setOnClickListener {
             loadData()
         }
+
+        binding.btnLockSettings.setOnClickListener {
+            val options = arrayOf("Lock App Now", "Change 4-Digit Passcode")
+            androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Admin Security")
+                .setItems(options) { _, which ->
+                    when (which) {
+                        0 -> lockAppNow()
+                        1 -> changePasscode()
+                    }
+                }
+                .show()
+        }
+    }
+
+    private fun lockAppNow() {
+        getSharedPreferences(AdminLockActivity.PREFS_NAME, MODE_PRIVATE)
+            .edit()
+            .remove(AdminLockActivity.KEY_LAST_UNLOCKED)
+            .apply()
+
+        val intent = Intent(this, AdminLockActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        }
+        startActivity(intent)
+        finish()
+    }
+
+    private fun changePasscode() {
+        val intent = Intent(this, AdminLockActivity::class.java).apply {
+            putExtra(AdminLockActivity.EXTRA_CHANGE_PIN, true)
+            putExtra(AdminLockActivity.EXTRA_FROM_MAIN, true)
+        }
+        startActivity(intent)
     }
 
     override fun onResume() {
         super.onResume()
+        if (!AdminLockActivity.isUnlockedRecently(this)) {
+            val intent = Intent(this, AdminLockActivity::class.java).apply {
+                putExtra(AdminLockActivity.EXTRA_FROM_MAIN, false)
+            }
+            startActivity(intent)
+            finish()
+            return
+        }
         loadData()
     }
 

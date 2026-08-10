@@ -68,14 +68,16 @@ class AdminFirebaseHelper {
                         val familyId = doc.reference.parent.parent?.id ?: continue
                         val name = doc.getString("childName") ?: "Child (${doc.id.take(6)})"
                         val lastSeen = doc.getLong("lastSeen") ?: 0L
-                        val isOnline = System.currentTimeMillis() - lastSeen < 60_000L
+                        val isTrackingActive = doc.getBoolean("isTrackingActive") ?: true
+                        val isOnline = (System.currentTimeMillis() - lastSeen < 60_000L) && isTrackingActive
 
                         val item = ChildChipItem(
                             id = doc.id,
                             name = name,
                             isOnline = isOnline,
                             lastSeen = lastSeen,
-                            familyId = familyId
+                            familyId = familyId,
+                            isTrackingActive = isTrackingActive
                         )
                         childrenByFamily.getOrPut(familyId) { mutableListOf() }.add(item)
                     }
@@ -112,8 +114,9 @@ class AdminFirebaseHelper {
                                     val children = childDocs.map { doc ->
                                         val name = doc.getString("childName") ?: "Child (${doc.id.take(6)})"
                                         val lastSeen = doc.getLong("lastSeen") ?: 0L
-                                        val isOnline = System.currentTimeMillis() - lastSeen < 60_000L
-                                        ChildChipItem(id = doc.id, name = name, isOnline = isOnline, lastSeen = lastSeen, familyId = fid)
+                                        val isTrackingActive = doc.getBoolean("isTrackingActive") ?: true
+                                        val isOnline = (System.currentTimeMillis() - lastSeen < 60_000L) && isTrackingActive
+                                        ChildChipItem(id = doc.id, name = name, isOnline = isOnline, lastSeen = lastSeen, familyId = fid, isTrackingActive = isTrackingActive)
                                     }
                                     familiesList.add(FamilyItem(fid, meta.first, meta.second, children))
                                     processed++
@@ -147,8 +150,9 @@ class AdminFirebaseHelper {
             val unlinkedList = unlinkedDocs.map { doc ->
                 val name = doc.getString("childName") ?: "Unlinked (${doc.id.take(6)})"
                 val lastSeen = doc.getLong("lastSeen") ?: 0L
-                val isOnline = System.currentTimeMillis() - lastSeen < 60_000L
-                ChildChipItem(id = doc.id, name = name, isOnline = isOnline, lastSeen = lastSeen, familyId = null)
+                val isTrackingActive = doc.getBoolean("isTrackingActive") ?: true
+                val isOnline = (System.currentTimeMillis() - lastSeen < 60_000L) && isTrackingActive
+                ChildChipItem(id = doc.id, name = name, isOnline = isOnline, lastSeen = lastSeen, familyId = null, isTrackingActive = isTrackingActive)
             }
             onResult(unlinkedList)
         }.addOnFailureListener { e ->
@@ -240,6 +244,12 @@ class AdminFirebaseHelper {
 
     fun updateChildName(familyId: String?, deviceId: String, newName: String, onComplete: (Boolean, String?) -> Unit) {
         getChildDocRef(familyId, deviceId).update("childName", newName)
+            .addOnSuccessListener { onComplete(true, null) }
+            .addOnFailureListener { e -> onComplete(false, e.message) }
+    }
+
+    fun updateChildTrackingState(familyId: String?, deviceId: String, isTrackingActive: Boolean, onComplete: (Boolean, String?) -> Unit) {
+        getChildDocRef(familyId, deviceId).update("isTrackingActive", isTrackingActive)
             .addOnSuccessListener { onComplete(true, null) }
             .addOnFailureListener { e -> onComplete(false, e.message) }
     }

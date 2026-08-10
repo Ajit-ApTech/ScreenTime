@@ -80,10 +80,10 @@ class CallLogAdminAdapter(
 ) : RecyclerView.Adapter<CallLogAdminAdapter.ViewHolder>() {
 
     private var items: List<CallRecord> = emptyList()
-    private val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
+    private val dateTimeFormat = SimpleDateFormat("MMM d, h:mm a", Locale.getDefault())
 
     fun submitList(newItems: List<CallRecord>) {
-        items = newItems
+        items = newItems.sortedByDescending { if (it.timestamp > 0) it.timestamp else 0L }
         notifyDataSetChanged()
     }
 
@@ -114,7 +114,11 @@ class CallLogAdminAdapter(
         }
         holder.tvCallIcon.text = icon
 
-        val timeStr = if (item.timestamp > 0) timeFormat.format(Date(item.timestamp)) else item.date
+        val timeStr = when {
+            item.timestamp > 0 -> dateTimeFormat.format(Date(item.timestamp))
+            item.date.isNotEmpty() -> item.date
+            else -> "--"
+        }
         holder.tvCallDetails.text = "${item.type.replaceFirstChar { it.uppercase() }} • ${item.durationSeconds}s • $timeStr"
 
         holder.btnEditCall.setOnClickListener { onEditCall(item) }
@@ -129,10 +133,10 @@ class MessageAdminAdapter(
 ) : RecyclerView.Adapter<MessageAdminAdapter.ViewHolder>() {
 
     private var items: List<MessageRecord> = emptyList()
-    private val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
+    private val dateTimeFormat = SimpleDateFormat("MMM d, h:mm a", Locale.getDefault())
 
     fun submitList(newItems: List<MessageRecord>) {
-        items = newItems
+        items = newItems.sortedByDescending { if (it.timestamp > 0) it.timestamp else 0L }
         notifyDataSetChanged()
     }
 
@@ -153,7 +157,11 @@ class MessageAdminAdapter(
         holder.tvContactName.text = item.contactName
         holder.tvPhoneNumber.text = item.phoneNumber
 
-        val timeStr = if (item.timestamp > 0) timeFormat.format(Date(item.timestamp)) else item.date
+        val timeStr = when {
+            item.timestamp > 0 -> dateTimeFormat.format(Date(item.timestamp))
+            item.date.isNotEmpty() -> item.date
+            else -> "--"
+        }
         holder.tvMsgDetails.text = "${item.type.replaceFirstChar { it.uppercase() }} • ${item.messageLength} chars • $timeStr"
 
         holder.btnDeleteMsg.setOnClickListener { onDeleteMsg(item) }
@@ -167,10 +175,10 @@ class NotificationAdminAdapter(
 ) : RecyclerView.Adapter<NotificationAdminAdapter.ViewHolder>() {
 
     private var items: List<NotificationRecord> = emptyList()
-    private val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
+    private val dateTimeFormat = SimpleDateFormat("MMM d, h:mm a", Locale.getDefault())
 
     fun submitList(newItems: List<NotificationRecord>) {
-        items = newItems
+        items = newItems.sortedByDescending { if (it.timestamp > 0) it.timestamp else 0L }
         notifyDataSetChanged()
     }
 
@@ -199,7 +207,11 @@ class NotificationAdminAdapter(
 
         holder.tvNotifTitle.text = item.title.ifEmpty { "Notification" }
         holder.tvNotifText.text = item.text
-        holder.tvNotifTime.text = if (item.timestamp > 0) timeFormat.format(Date(item.timestamp)) else item.date
+        holder.tvNotifTime.text = when {
+            item.timestamp > 0 -> dateTimeFormat.format(Date(item.timestamp))
+            item.date.isNotEmpty() -> item.date
+            else -> "--"
+        }
 
         holder.btnDeleteNotif.setOnClickListener { onDeleteNotif(item) }
     }

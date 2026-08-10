@@ -89,6 +89,31 @@
             </LinearLayout>
         </LinearLayout>
 
+        <!-- Data Sync / Tracking Switch -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="6dp"
+            android:gravity="center"
+            android:orientation="vertical">
+
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                android:id="@+id/switchTracking"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:checked="true"
+                app:useMaterialThemeColors="true" />
+
+            <TextView
+                android:id="@+id/tvTrackingStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Sync ON"
+                android:textColor="@color/status_green"
+                android:textSize="9sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
         <!-- Action buttons -->
         <ImageButton
             android:id="@+id/btnEditName"

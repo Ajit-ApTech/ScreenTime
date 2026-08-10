@@ -10,8 +10,10 @@ import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.switchmaterial.SwitchMaterial
 import com.screentime.admin.R
 import com.screentime.admin.models.ChildChipItem
 import com.screentime.admin.models.FamilyItem
@@ -20,7 +22,8 @@ class FamilyAdapter(
     private val onChildClick: (ChildChipItem) -> Unit,
     private val onEditChildName: (ChildChipItem) -> Unit,
     private val onDeleteChild: (ChildChipItem) -> Unit,
-    private val onDeleteFamily: (FamilyItem) -> Unit
+    private val onDeleteFamily: (FamilyItem) -> Unit,
+    private val onToggleChildTracking: (ChildChipItem, Boolean) -> Unit
 ) : RecyclerView.Adapter<FamilyAdapter.ViewHolder>() {
 
     private var items: List<FamilyItem> = emptyList()
@@ -52,7 +55,8 @@ class FamilyAdapter(
         val childAdapter = ChildAdminAdapter(
             onChildClick = onChildClick,
             onEditName = onEditChildName,
-            onDelete = onDeleteChild
+            onDelete = onDeleteChild,
+            onToggleTracking = onToggleChildTracking
         )
         holder.rvFamilyChildren.layoutManager = LinearLayoutManager(holder.itemView.context)
         holder.rvFamilyChildren.adapter = childAdapter
@@ -69,7 +73,8 @@ class FamilyAdapter(
 class ChildAdminAdapter(
     private val onChildClick: (ChildChipItem) -> Unit,
     private val onEditName: (ChildChipItem) -> Unit,
-    private val onDelete: (ChildChipItem) -> Unit
+    private val onDelete: (ChildChipItem) -> Unit,
+    private val onToggleTracking: (ChildChipItem, Boolean) -> Unit
 ) : RecyclerView.Adapter<ChildAdminAdapter.ViewHolder>() {
 
     private var items: List<ChildChipItem> = emptyList()
@@ -85,6 +90,8 @@ class ChildAdminAdapter(
         val tvAvatarInitial: TextView = view.findViewById(R.id.tvAvatarInitial)
         val viewStatusDot: View = view.findViewById(R.id.viewStatusDot)
         val btnCopyDeviceId: LinearLayout = view.findViewById(R.id.btnCopyDeviceId)
+        val switchTracking: SwitchMaterial = view.findViewById(R.id.switchTracking)
+        val tvTrackingStatus: TextView = view.findViewById(R.id.tvTrackingStatus)
         val btnEditName: ImageButton = view.findViewById(R.id.btnEditName)
         val btnDeleteChild: ImageButton = view.findViewById(R.id.btnDeleteChild)
     }
@@ -96,6 +103,7 @@ class ChildAdminAdapter(
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val item = items[position]
+        val context = holder.itemView.context
         holder.tvChildName.text = item.name
 
         // Initial for avatar circle
@@ -112,16 +120,31 @@ class ChildAdminAdapter(
 
         // Copy Device ID to clipboard on tap
         holder.btnCopyDeviceId.setOnClickListener {
-            val context = holder.itemView.context
             val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             val clip = ClipData.newPlainText("Device ID", item.id)
             clipboard.setPrimaryClip(clip)
             Toast.makeText(context, "Copied Device ID: ${item.id}", Toast.LENGTH_SHORT).show()
         }
 
-        holder.viewStatusDot.setBackgroundResource(
-            if (item.isOnline) R.drawable.bg_pill_green else R.drawable.bg_pill_neutral
-        )
+        // Setup Tracking Switch state safely
+        holder.switchTracking.setOnCheckedChangeListener(null)
+        holder.switchTracking.isChecked = item.isTrackingActive
+
+        if (item.isTrackingActive) {
+            holder.tvTrackingStatus.text = "Sync ON"
+            holder.tvTrackingStatus.setTextColor(ContextCompat.getColor(context, R.color.status_green))
+            holder.viewStatusDot.setBackgroundResource(
+                if (item.isOnline) R.drawable.bg_pill_green else R.drawable.bg_pill_neutral
+            )
+        } else {
+            holder.tvTrackingStatus.text = "Sync OFF"
+            holder.tvTrackingStatus.setTextColor(ContextCompat.getColor(context, R.color.status_red))
+            holder.viewStatusDot.setBackgroundResource(R.drawable.bg_pill_red)
+        }
+
+        holder.switchTracking.setOnCheckedChangeListener { _, isChecked ->
+            onToggleTracking(item, isChecked)
+        }
 
         holder.itemView.setOnClickListener { onChildClick(item) }
         holder.btnEditName.setOnClickListener { onEditName(item) }

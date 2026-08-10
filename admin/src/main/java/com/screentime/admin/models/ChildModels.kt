@@ -5,7 +5,8 @@ data class ChildChipItem(
     val name: String,
     val isOnline: Boolean,
     val lastSeen: Long,
-    val familyId: String? = null
+    val familyId: String? = null,
+    val isTrackingActive: Boolean = true
 )
 
 data class FamilyItem(

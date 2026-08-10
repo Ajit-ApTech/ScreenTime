@@ -83,24 +83,10 @@
         android:paddingHorizontal="16dp"
         android:paddingVertical="10dp">
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnViewAnalytics"
-            android:layout_width="wrap_content"
-            android:layout_height="36dp"
-            android:backgroundTint="@color/accent_indigo"
-            android:text="📊 Analytics"
-            android:textColor="@color/white"
-            android:textSize="11sp"
-            android:insetTop="0dp"
-            android:insetBottom="0dp"
-            android:layout_marginEnd="8dp"
-            app:cornerRadius="10dp" />
-
         <TextView
-            android:layout_width="0dp"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="WIPE:"
+            android:text="WIPE DATA:"
             android:textColor="@color/text_tertiary"
             android:textSize="10sp"
             android:textStyle="bold" />
@@ -152,6 +138,66 @@
             android:textSize="10sp"
             app:strokeColor="@color/status_orange"
             app:strokeWidth="1dp" />
+    </LinearLayout>
+
+    <!-- Date Filter Bar -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/bg_surface"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingHorizontal="16dp"
+        android:paddingVertical="8dp">
+
+        <TextView
+            android:id="@+id/tvActiveDateFilter"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="📅 Filter: All Dates"
+            android:textColor="@color/accent_indigo"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnFilterAll"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="32dp"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:paddingHorizontal="8dp"
+            android:text="All"
+            android:textColor="@color/text_primary"
+            android:textSize="11sp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnFilterToday"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="32dp"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:paddingHorizontal="8dp"
+            android:text="Today"
+            android:textColor="@color/text_primary"
+            android:textSize="11sp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnFilterPickDate"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="wrap_content"
+            android:layout_height="32dp"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:paddingHorizontal="8dp"
+            android:text="📅 Calendar"
+            android:textColor="@color/accent_indigo"
+            android:textSize="11sp"
+            app:strokeColor="@color/accent_indigo"
+            app:strokeWidth="1dp"
+            app:cornerRadius="8dp" />
     </LinearLayout>
 
     <!-- Tabs -->

@@ -177,15 +177,28 @@ class ChildDetailAdminActivity : AppCompatActivity() {
         }
     }
 
+    private var selectedDateFilter: String? = null // null means "All Dates"
+    private val dateFmt = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
+
     private fun setupListeners() {
         binding.btnBack.setOnClickListener { finish() }
 
-        binding.btnViewAnalytics.setOnClickListener {
-            val intent = Intent(this, AppUsageAnalyticsActivity::class.java).apply {
-                putExtra("CHILD_NAME", childName)
-                putExtra("APP_SESSIONS", ArrayList(currentSessions))
-            }
-            startActivity(intent)
+        // Date Filter Buttons
+        binding.btnFilterAll.setOnClickListener {
+            selectedDateFilter = null
+            binding.tvActiveDateFilter.text = "📅 Filter: All Dates"
+            updateFilteredLists()
+        }
+
+        binding.btnFilterToday.setOnClickListener {
+            val todayStr = dateFmt.format(java.util.Date())
+            selectedDateFilter = todayStr
+            binding.tvActiveDateFilter.text = "📅 Filter: Today ($todayStr)"
+            updateFilteredLists()
+        }
+
+        binding.btnFilterPickDate.setOnClickListener {
+            showDatePickerDialog()
         }
 
         binding.btnEditChildName.setOnClickListener {
@@ -245,6 +258,59 @@ class ChildDetailAdminActivity : AppCompatActivity() {
         }
     }
 
+    private fun showDatePickerDialog() {
+        val cal = java.util.Calendar.getInstance()
+        val year = cal.get(java.util.Calendar.YEAR)
+        val month = cal.get(java.util.Calendar.MONTH)
+        val day = cal.get(java.util.Calendar.DAY_OF_MONTH)
+
+        val dpd = android.app.DatePickerDialog(this, { _, selectedYear, selectedMonth, selectedDay ->
+            val selCal = java.util.Calendar.getInstance().apply {
+                set(selectedYear, selectedMonth, selectedDay)
+            }
+            val formatted = dateFmt.format(selCal.time)
+            selectedDateFilter = formatted
+            binding.tvActiveDateFilter.text = "📅 Filter: $formatted"
+            updateFilteredLists()
+        }, year, month, day)
+
+        dpd.show()
+    }
+
+    private fun updateFilteredLists() {
+        val filter = selectedDateFilter
+
+        val filteredSessions = if (filter == null) {
+            currentSessions
+        } else {
+            currentSessions.filter { s ->
+                s.date == filter ||
+                (s.lastUsedTimestamp > 0 && dateFmt.format(java.util.Date(s.lastUsedTimestamp)) == filter) ||
+                s.sessions.any { entry -> entry.startTime > 0 && dateFmt.format(java.util.Date(entry.startTime)) == filter }
+            }
+        }
+        val filteredCalls = if (filter == null) currentCalls else currentCalls.filter { 
+            it.date == filter || (it.timestamp > 0 && dateFmt.format(java.util.Date(it.timestamp)) == filter)
+        }
+        val filteredMsgs = if (filter == null) currentMsgs else currentMsgs.filter {
+            it.date == filter || (it.timestamp > 0 && dateFmt.format(java.util.Date(it.timestamp)) == filter)
+        }
+        val filteredNotifs = if (filter == null) currentNotifs else currentNotifs.filter {
+            it.date == filter || (it.timestamp > 0 && dateFmt.format(java.util.Date(it.timestamp)) == filter)
+        }
+
+        // Update tab titles with counts for active filter
+        binding.tabLayout.getTabAt(0)?.text = "📱 Apps (${filteredSessions.size})"
+        binding.tabLayout.getTabAt(1)?.text = "📞 Calls (${filteredCalls.size})"
+        binding.tabLayout.getTabAt(2)?.text = "💬 Msgs (${filteredMsgs.size})"
+        binding.tabLayout.getTabAt(3)?.text = "🔔 Alerts (${filteredNotifs.size})"
+
+        appUsageFragment.submitData(filteredSessions)
+        callLogFragment.submitData(filteredCalls)
+        messageFragment.submitData(filteredMsgs)
+        notificationFragment.submitData(filteredNotifs)
+    }
+
     private fun startLiveListener() {
         listenerRegistration = firebaseHelper.listenToChildDocument(
             familyId = familyId,
@@ -258,16 +324,7 @@ class ChildDetailAdminActivity : AppCompatActivity() {
                 currentMsgs = msgs.toMutableList()
                 currentNotifs = notifs.toMutableList()
 
-                // Update tab titles with real-time counts
-                binding.tabLayout.getTabAt(0)?.text = "📱 Apps (${sessions.size})"
-                binding.tabLayout.getTabAt(1)?.text = "📞 Calls (${calls.size})"
-                binding.tabLayout.getTabAt(2)?.text = "💬 Msgs (${msgs.size})"
-                binding.tabLayout.getTabAt(3)?.text = "🔔 Alerts (${notifs.size})"
-
-                appUsageFragment.submitData(sessions)
-                callLogFragment.submitData(calls)
-                messageFragment.submitData(msgs)
-                notificationFragment.submitData(notifs)
+                updateFilteredLists()
             },
             onError = { err ->
                 showToast(err)

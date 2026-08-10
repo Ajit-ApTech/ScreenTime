@@ -12,7 +12,7 @@
         android:supportsRtl="true">
 
         <activity
-            android:name=".AdminMainActivity"
+            android:name=".AdminLockActivity"
             android:exported="true"
             android:theme="@style/Theme.Screentime">
             <intent-filter>
@@ -20,6 +20,11 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".AdminMainActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Screentime" />
 
         <activity
             android:name=".ChildDetailAdminActivity"

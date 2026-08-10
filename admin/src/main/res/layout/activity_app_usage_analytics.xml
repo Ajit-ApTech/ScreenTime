@@ -180,6 +180,22 @@
             android:textColor="@color/accent_indigo"
             android:textSize="13sp"
             android:textStyle="bold" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnPickDate"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="wrap_content"
+            android:layout_height="32dp"
+            android:layout_marginStart="8dp"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:paddingHorizontal="8dp"
+            android:text="📅 Date"
+            android:textColor="@color/accent_indigo"
+            android:textSize="11sp"
+            app:strokeColor="@color/accent_indigo"
+            app:strokeWidth="1dp"
+            app:cornerRadius="8dp" />
     </LinearLayout>
 
     <!-- App List -->

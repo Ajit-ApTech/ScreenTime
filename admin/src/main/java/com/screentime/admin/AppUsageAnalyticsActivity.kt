@@ -41,6 +41,10 @@ class AppUsageAnalyticsActivity : AppCompatActivity() {
     private val displayDateFmt = SimpleDateFormat("EEE, MMM d", Locale.getDefault())
     private val storedDateFmt = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
 
+    private var allCalls: List<com.screentime.admin.models.CallRecord> = emptyList()
+    private var allMsgs: List<com.screentime.admin.models.MessageRecord> = emptyList()
+    private var allNotifs: List<com.screentime.admin.models.NotificationRecord> = emptyList()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityAppUsageAnalyticsBinding.inflate(layoutInflater)
@@ -50,10 +54,19 @@ class AppUsageAnalyticsActivity : AppCompatActivity() {
         binding.tvChildNameAnalytics.text = childName
 
         @Suppress("UNCHECKED_CAST")
-        val rawSessions = intent.getSerializableExtra("APP_SESSIONS") as? ArrayList<AppSession>
-        allSessions = rawSessions ?: emptyList()
+        allSessions = (intent.getSerializableExtra("APP_SESSIONS") as? ArrayList<AppSession>) ?: emptyList()
+        @Suppress("UNCHECKED_CAST")
+        allCalls = (intent.getSerializableExtra("CALL_LOGS") as? ArrayList<com.screentime.admin.models.CallRecord>) ?: emptyList()
+        @Suppress("UNCHECKED_CAST")
+        allMsgs = (intent.getSerializableExtra("MESSAGES") as? ArrayList<com.screentime.admin.models.MessageRecord>) ?: emptyList()
+        @Suppress("UNCHECKED_CAST")
+        allNotifs = (intent.getSerializableExtra("NOTIFICATIONS") as? ArrayList<com.screentime.admin.models.NotificationRecord>) ?: emptyList()
 
         binding.btnBack.setOnClickListener { finish() }
+
+        binding.btnPickDate.setOnClickListener {
+            showDatePickerDialog()
+        }
 
         appListAdapter = AppDateSessionAdapter { session ->
             AppSessionsBottomSheet.show(this, allSessions, session.packageName)
@@ -64,6 +77,24 @@ class AppUsageAnalyticsActivity : AppCompatActivity() {
         buildDateMap()
         renderChart()
         renderAppList(null) // show all initially
+    }
+
+    private fun showDatePickerDialog() {
+        val cal = java.util.Calendar.getInstance()
+        val year = cal.get(java.util.Calendar.YEAR)
+        val month = cal.get(java.util.Calendar.MONTH)
+        val day = cal.get(java.util.Calendar.DAY_OF_MONTH)
+
+        val dpd = android.app.DatePickerDialog(this, { _, selectedYear, selectedMonth, selectedDay ->
+            val selCal = java.util.Calendar.getInstance().apply {
+                set(selectedYear, selectedMonth, selectedDay)
+            }
+            val formatted = storedDateFmt.format(selCal.time)
+            selectedDate = formatted
+            renderAppList(formatted)
+        }, year, month, day)
+
+        dpd.show()
     }
 
     private fun buildDateMap() {
@@ -211,8 +242,20 @@ class AppUsageAnalyticsActivity : AppCompatActivity() {
             val totalMins = dateMinutesMap[date] ?: 0L
             val h = totalMins / 60
             val m = totalMins % 60
+            val timeText = if (h > 0) "${h}h ${m}m" else "${m}m"
+
+            val callsCount = allCalls.count { it.date == date || (it.timestamp > 0 && storedDateFmt.format(Date(it.timestamp)) == date) }
+            val msgsCount = allMsgs.count { it.date == date || (it.timestamp > 0 && storedDateFmt.format(Date(it.timestamp)) == date) }
+            val notifsCount = allNotifs.count { it.date == date || (it.timestamp > 0 && storedDateFmt.format(Date(it.timestamp)) == date) }
+
+            val statsSummary = mutableListOf<String>()
+            if (totalMins > 0) statsSummary.add(timeText)
+            if (callsCount > 0) statsSummary.add("📞 $callsCount")
+            if (msgsCount > 0) statsSummary.add("💬 $msgsCount")
+            if (notifsCount > 0) statsSummary.add("🔔 $notifsCount")
+
             binding.tvSelectedDate.text = displayDate
-            binding.tvDateTotal.text = if (h > 0) "${h}h ${m}m" else "${m}m"
+            binding.tvDateTotal.text = if (statsSummary.isNotEmpty()) statsSummary.joinToString(" • ") else "No activity"
         } else {
             binding.tvSelectedDate.text = "All Time"
             binding.tvDateTotal.text = ""

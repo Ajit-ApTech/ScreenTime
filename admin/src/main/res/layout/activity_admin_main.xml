@@ -49,6 +49,16 @@
             android:contentDescription="Refresh"
             android:src="@android:drawable/ic_popup_sync"
             app:tint="@color/text_primary" />
+
+        <ImageButton
+            android:id="@+id/btnLockSettings"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="8dp"
+            android:background="@drawable/bg_btn_circle"
+            android:contentDescription="Lock Settings"
+            android:src="@android:drawable/ic_lock_lock"
+            app:tint="@color/text_primary" />
     </LinearLayout>
 
     <!-- KPI Summary Metrics Bar -->
